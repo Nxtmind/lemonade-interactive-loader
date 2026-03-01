@@ -39,8 +39,8 @@ This document outlines the questions we will ask users to configure their Lemona
 
 **Q6: Do you want a system tray or headless?**
 - Options:
-  - `system-tray` - Run with a system tray icon for easy control
-  - `headless` (default) - Run as a background service without UI
+  - `system-tray` (default) - Run with a system tray icon for easy control
+  - `headless` - Run as a background service without UI
 - Description: Choose between running with a system tray interface or as a headless service.
 
 **Q7: Are there any llama.cpp args you need to set?**
@@ -58,7 +58,7 @@ This document outlines the questions we will ask users to configure their Lemona
 ## Configuration Storage
 
 Configuration will be stored at **user-level only**:
-- **Location**: `~/.lemonade/config.json`
+- **Location**: `~/.lemonade-launcher/config.json`
 - **Purpose**: Persist user preferences across all projects and sessions
 
 ## Commands
@@ -95,5 +95,5 @@ The CLI now supports the following commands via the main menu:
 ## Configuration Storage
 
 Configuration is stored at **user-level only**:
-- **Location**: `~/.lemonade/config.json`
+- **Location**: `~/.lemonade-launcher/config.json`
 - **Purpose**: Persist user preferences across all projects and sessions

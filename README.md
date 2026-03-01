@@ -1,82 +1,123 @@
-# 🍋 Lemonade Llama Loader
+# 🍋 Lemonade Launcher
 
-An interactive CLI tool to download llama.cpp releases and launch Lemonade Server with a user-friendly setup wizard.
+[![License: ISC](https://img.shields.io/badge/Lxicense-ISC-blue.svg)](https://opensource.org/licenses/ISC)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](#)
 
-**Cross-platform support:** Windows, Linux, and macOS
+**The easiest way to manage llama.cpp builds and run Lemonade Server**
 
-## Features
+Lemonade Launcher is a professional, cross-platform CLI tool that simplifies downloading llama.cpp builds and launching Lemonade Server with an intuitive interactive interface.
 
-- **🚀 Setup Wizard** - Interactive 8-question wizard to configure Lemonade Server
-- **💾 Persistent Configuration** - Save and reuse your settings across sessions
-- **🔄 Edit Configuration** - Update your settings anytime
-- **🍋 Download llama.cpp Builds** - Browse, download, and extract llama.cpp releases
-- **🖥️ Backend Selection** - Choose from auto, vulkan, rocm, or cpu backends
-- **🌐 Network Configuration** - Easily configure local network exposure
-- **📁 Custom Model Directories** - Point to existing model directories (e.g., LM Studio)
-- **⚙️ Custom llama.cpp Args** - Pass additional arguments to llama.cpp
-- **📦 Custom Builds** - Download specific llama.cpp builds from GitHub
-- **🍋 Direct Server Launch** - Start lemonade-server with your saved configuration
+## 🚀 Quick Start
 
-## Installation
+### Installation
 
 ```bash
+git clone https://github.com/yourusername/lemonade-launcher.git
+cd lemonade-launcher
 npm install
 ```
 
-## Usage
-
-### Interactive Mode
-
-Run the CLI tool to access the main menu:
+### Running the Tool
 
 ```bash
+# Start the interactive CLI
 npm start
 # or
 node index.js
 ```
 
-The tool will present you with the following options:
+That's it! You'll be presented with a friendly menu to configure and run your server.
 
-1. **🚀 Setup** - Run the interactive setup wizard (8 questions)
-2. **🔄 Edit Configuration** - Update your saved configuration
-3. **👁️ View Configuration** - View your current configuration
-4. **🔄 Reset Configuration** - Reset all configuration to defaults
-5. **🍋 Download Build Only** - Download a llama.cpp build without launching
-6. **🚀 Start Server** - Launch lemonade-server with current configuration
+## 🎯 What You Can Do
 
-### Setup Wizard
+### Interactive Menu Options
 
-The setup wizard asks 8 questions:
+| Command | Description |
+|---------|-------------|
+| **🚀 Setup** | Run the 8-question setup wizard to configure everything |
+| **🔄 Edit Configuration** | Update your saved settings interactively |
+| **👁️ View Configuration** | See your current configuration and installed builds |
+| **🔄 Reset Configuration** | Start fresh by resetting all settings |
+| **📦 Manage Builds** | View, delete, or download custom llama.cpp builds |
+| **🚀 Start Server** | Launch Lemonade Server with your saved configuration |
 
-1. **Local Network Exposure** - Should the server be accessible from other devices?
-2. **Port** - Which port should the server run on? (default: 8080)
-3. **Log Level** - info, debug, warning, or error
-4. **Backend** - auto, vulkan, rocm, or cpu
-5. **Custom Model Directory** - Path to existing models (e.g., LM Studio)
-6. **Run Mode** - system-tray or headless
-7. **llama.cpp Args** - Additional command-line arguments
-8. **Custom Build** - Download a specific llama.cpp build from GitHub
+### The Setup Wizard
 
-### Commands
+Just answer 8 simple questions:
+
+1. **Network access?** Should the server be accessible from other devices?
+2. **Port number?** Which port should it run on? (default: 8080)
+3. **Logging level?** Choose from info, debug, warning, or error
+4. **Model directory?** Point to existing models (like LM Studio) if needed
+5. **Interface type?** System tray or headless mode
+6. **Custom arguments?** Any additional llama.cpp parameters?
+7. **Custom build?** Use a specific llama.cpp build from GitHub?
+8. **Backend?** Choose auto, vulkan, rocm, or cpu
+
+## ✨ Key Features
+
+- **🎨 User-Friendly Interface** - Interactive menus, no command-line expertise needed
+- **💾 Smart Configuration** - Save settings once, use them forever
+- **📦 Build Management** - Browse, download, and manage multiple llama.cpp builds
+- **🖥️ Backend Flexibility** - Support for CPU, CUDA, ROCm, Vulkan, and more
+- **🌐 Network Ready** - Easily configure localhost or network access
+- **🔄 Cross-Platform** - Works seamlessly on Windows, Linux, and macOS
+- **🎯 Auto-Detection** - Automatically suggests the best builds for your system
+- **⚡ Quick Launch** - Start your server with a single command
+
+## 📖 Documentation
+
+- **📚 [Usage Guide](#-quick-start)** - Get started quickly
+- **🔧 [Technical Documentation](TECHNICAL_README.md)** - Deep dive into architecture and API
+- **🛠️ [Troubleshooting](#-troubleshooting)** - Common issues and solutions
+
+## 🎬 Usage Examples
+
+### First-Time Setup
 
 ```bash
-# Run the setup wizard
-node index.js
+$ node index.js
 
-# View current configuration
-node index.js --view
+╔════════════════════════════════════════════════════════╗
+║            🍋 Lemonade Interactive Launcher            ║
+╚════════════════════════════════════════════════════════╝
 
-# Reset configuration
-node index.js --reset
+? What would you like to do?
+❯ 🚀 Setup - Configure Lemonade Server
+  🔄 Edit Configuration
+  👁️  View Configuration
+  🔄 Reset Configuration
+  📦 Manage llama.cpp Build Only
+  🚀 Start Server with Current Config
 ```
 
-### Configuration File
+### Downloading a Custom Build
 
-Configuration is stored at:
-- **Linux/macOS**: `~/.lemonade/config.json`
-- **Windows**: `%USERPROFILE%\.lemonade\config.json`
+1. Select **📦 Manage llama.cpp Build Only**
+2. Choose **⬇️ Download new build**
+3. Pick a release from the list
+4. Select the asset for your platform
+5. Sit back while it downloads and extracts automatically
 
-Example configuration:
+### Running with Custom Models
+
+Point Lemonade Server to your existing model directory (like LM Studio's):
+
+```
+? Is there another model directory to use? (example: LM Studio) Yes
+? Enter the model directory path: /home/user/.local/share/lmstudio/models
+```
+
+## 🛠️ Configuration
+
+Configuration is automatically saved and loaded:
+
+- **Location**: `~/.lemonade-launcher/config.json` (Linux/macOS) or `%USERPROFILE%\.lemonade-launcher\config.json` (Windows)
+- **Format**: JSON
+- **Auto-saved**: After every setup or edit
+
+### Example Configuration
 
 ```json
 {
@@ -88,195 +129,122 @@ Example configuration:
   "modelDir": "None",
   "runMode": "headless",
   "llamacppArgs": "",
-  "customLlamacppPath": "",
-  "createdAt": "2026-03-01T12:00:00.000Z",
-  "updatedAt": "2026-03-01T12:00:00.000Z"
+  "customLlamacppPath": ""
 }
 ```
 
-## Cross-Platform Support
+## 🌍 Cross-Platform Support
 
-### Supported Operating Systems
+### Supported Systems
 
-- ✅ **Windows** (x64, arm64)
-- ✅ **Linux** (x64, arm64, armv7l)
-- ✅ **macOS** (x64, arm64/Apple Silicon)
+| Platform | Versions | Architecture |
+|----------|----------|--------------|
+| **Windows** | 10, 11 | x64, arm64 |
+| **Linux** | Ubuntu, Debian, CentOS, etc. | x64, arm64, armv7l |
+| **macOS** | 10.15+ (Catalina+) | x64, arm64 (Apple Silicon) |
 
-### Platform-Specific Behavior
+### Automatic Platform Detection
 
-#### File Paths
-- **Linux/macOS**: Uses Unix-style paths (`/home/user/.lemonade/`)
-- **Windows**: Uses Windows-style paths (`C:\Users\user\.lemonade\`)
-- All paths are automatically handled by Node.js `path` module
+Lemonade Launcher automatically:
+- Detects your operating system and architecture
+- Suggests the best matching llama.cpp builds
+- Uses the correct file paths and command syntax
+- Handles platform-specific quirks
 
-#### Command Execution
-- **Linux/macOS**: Uses standard shell command execution
-- **Windows**: Uses `set VAR=value` syntax for environment variables
-- Commands are automatically formatted for the current platform
+## 📦 Programmatic Usage
 
-#### Executable Extensions
-- **Windows**: Automatically looks for `.exe` files (e.g., `llama-server.exe`)
-- **Linux/macOS**: Uses standard executable files (e.g., `llama-server`)
+Use Lemonade Launcher as a library in your own projects:
 
-### Installation Paths
+```javascript
+const { 
+  fetchAllReleases,
+  downloadAndExtractLlamaCpp,
+  loadConfig,
+  saveConfig
+} = require('./src/index');
 
-| Platform | Config Directory | lemonade-server Path |
-|----------|-----------------|---------------------|
-| Linux | `~/.lemonade/` | `/usr/local/bin/lemonade-server` |
-| macOS | `~/.lemonade/` | `/opt/homebrew/bin/lemonade-server` |
-| Windows | `%USERPROFILE%\.lemonade\` | `%USERPROFILE%\AppData\Local\lemonade_server\bin\lemonade-server.exe` |
+// Fetch available releases
+const releases = await fetchAllReleases(10);
 
-### llama.cpp Build Downloads
+// Download a specific build
+await downloadAndExtractLlamaCpp(asset, version);
 
-The tool automatically detects your platform and architecture to suggest the best matching builds:
-
-- **Windows**: Downloads `.zip` archives with Windows binaries
-- **Linux**: Downloads `.tar.gz` archives with Linux binaries
-- **macOS**: Downloads macOS-specific builds
-
-## Environment Variables
-
-The tool sets one of the following environment variables based on your selected backend:
-
-| Variable | Backend |
-|----------|---------|
-| `LEMONADE_LLAMACPP_CPU_BIN` | CPU backend |
-| `LEMONADE_LLAMACPP_CUDA_BIN` | CUDA backend |
-| `LEMONADE_LLAMACPP_ROCM_BIN` | ROCm backend |
-| `LEMONADE_LLAMACPP_VULKAN_BIN` | Vulkan backend |
-| `LEMONADE_LLAMACPP_SYCL_BIN` | SYCL backend |
-
-### Custom Install Directory
-
-llama.cpp builds are downloaded to platform-specific locations:
-
-| Platform | Install Directory |
-|----------|------------------|
-| Linux | `~/.lemonade/llama-cpp/{version}/{archive-name}/` |
-| macOS | `~/.lemonade/llama-cpp/{version}/{archive-name}/` |
-| Windows | `%USERPROFILE%\.lemonade\llama-cpp\{version}\{archive-name}\` |
-
-Each build is extracted into a subdirectory named after the archive (without extension).
-
-Example: `llama-b8182-bin-ubuntu-x64.tar.gz` → `~/.lemonade/llama-cpp/b8182/llama-b8182-bin-ubuntu-x64/`
-
-## Requirements
-
-- **Node.js**: Version 14.0.0 or higher
-- **npm**: Version 6.0.0 or higher
-
-### Platform Requirements
-
-#### Windows
-- Windows 10 or later
-- Visual C++ Redistributable (for native modules)
-- PowerShell or Command Prompt
-
-#### Linux
-- glibc 2.17 or later
-- Standard build tools (for native modules)
-- Bash shell
-
-#### macOS
-- macOS 10.15 (Catalina) or later
-- Xcode Command Line Tools (for native modules)
-
-## Troubleshooting
-
-### Windows-Specific Issues
-
-#### "Permission Denied" Errors
-Run Command Prompt or PowerShell as Administrator:
-```cmd
-npm install -g lemonade-loader
+// Manage configuration
+const config = loadConfig();
+config.port = 9090;
+saveConfig(config);
 ```
 
-#### Path Issues
-If you encounter path-related errors, ensure:
-- No spaces in installation paths (or use quoted paths)
-- Environment variables are properly set using `set` command
+See the [Technical Documentation](TECHNICAL_README.md) for the full API reference.
 
-### Linux-Specific Issues
+## 🐛 Troubleshooting
 
-#### Missing Dependencies
-Install required build tools:
-```bash
-# Ubuntu/Debian
-sudo apt-get install build-essential
+### Common Issues
 
-# CentOS/RHEL
-sudo yum install gcc-c++ make
-```
+#### "Command not found" or "npm: command not found"
+**Solution**: Ensure Node.js and npm are installed and in your PATH.
 
-#### Permission Issues
-Make the script executable:
+#### Permission denied errors (Linux/macOS)
 ```bash
 chmod +x index.js
 ```
 
-### Cross-Platform Issues
+#### Permission denied errors (Windows)
+Run Command Prompt or PowerShell as Administrator.
 
-#### Environment Variables Not Set
-- **Windows**: Use `set VAR=value` syntax
-- **Linux/macOS**: Use `export VAR=value` syntax
-- The tool automatically handles this, but manual setup may require platform-specific syntax
+#### Build download fails
+- Check your internet connection
+- Ensure you have write permissions to `~/.lemonade-launcher/`
+- Try downloading the asset manually from GitHub
 
-#### Archive Extraction Fails
-- Ensure you have write permissions to the target directory
-- Check available disk space
-- Try downloading the archive manually and extracting with platform-native tools
+#### Server won't start
+- Verify lemonade-server is installed: [lemonade-server.ai](https://lemonade-server.ai)
+- Check that the configuration is correct: `node index.js` → View Configuration
+- Try running with debug logging: Set log level to "debug" in setup
 
-## Programmatic Usage
+### Getting Help
 
-Import the module to use individual functions:
+1. Check the [Technical Documentation](TECHNICAL_README.md)
+2. Review the [Troubleshooting Guide](TECHNICAL_README.md#troubleshooting)
+3. Open an issue on GitHub
 
-```javascript
-const { 
-  fetchLatestRelease, 
-  fetchAllReleases,
-  downloadFile,
-  extractArchive,
-  findLlamaServer,
-  categorizeAsset 
-} = require('./index.js');
+## 🤝 Contributing
 
-// Fetch releases
-const releases = await fetchAllReleases(10);
-console.log(releases[0].tag_name);
+Contributions are welcome! Here's how you can help:
 
-// Download and extract
-await downloadFile(url, './download.zip');
-await extractArchive('./download.zip', './extract-dir');
+1. **Fork** the repository
+2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
+3. **Make** your changes
+4. **Test** thoroughly on your platform
+5. **Commit** your changes (`git commit -m 'Add amazing feature'`)
+6. **Push** to the branch (`git push origin feature/amazing-feature`)
+7. **Open** a Pull Request
 
-// Find the server binary
-const serverPath = findLlamaServer('./extract-dir');
-```
+### Code of Conduct
 
-## Installation Directory
+- Be respectful and inclusive
+- Follow the existing code style
+- Write clear commit messages
+- Document your changes
 
-By default, binaries are stored in:
-- **Linux/macOS**: `~/.lemonade-llamacpp/`
-- **Windows**: `%USERPROFILE%\.lemonade-llamacpp\`
+## 📚 Resources
 
-Each release is stored in its own subdirectory (e.g., `~/.lemonade-llamacpp/b8172/`).
+- [Technical Documentation](TECHNICAL_README.md) - Architecture, API reference, and development guide
+- [llama.cpp](https://github.com/ggml-org/llama.cpp) - The underlying inference engine
+- [Lemonade Server](https://lemonade-server.ai) - The server being launched
 
-## Environment Variable Reference
+## 📄 License
 
-| Variable | Description |
-|----------|-------------|
-| `LEMONADE_LLAMACPP_ROCM_BIN` | Path to custom `llama-server` binary for ROCm backend |
-| `LEMONADE_LLAMACPP_VULKAN_BIN` | Path to custom `llama-server` binary for Vulkan backend |
-| `LEMONADE_LLAMACPP_CPU_BIN` | Path to custom `llama-server` binary for CPU backend |
-| `LEMONADE_LLAMACPP_CUDA_BIN` | Path to custom `llama-server` binary for CUDA backend |
-| `LEMONADE_LLAMACPP_DIR` | Custom installation directory for llama.cpp binaries |
+This project is licensed under the ISC License. See the [LICENSE](LICENSE) file for details.
 
-## Dependencies
+## 🙏 Acknowledgments
 
-- Node.js 18+
-- `inquirer` - Interactive CLI prompts
-- `tar` - Tar archive extraction
-- `unzipper` - ZIP archive extraction
+- [llama.cpp](https://github.com/ggml-org/llama.cpp) team for the amazing inference engine
+- [Lemonade Server](https://lemonade-server.ai) for the server implementation
+- The Node.js community for the fantastic ecosystem
 
-## License
+---
 
-ISC
+**Made with 🍋 by Nxtmind**
+
+*Happy prompting!*
