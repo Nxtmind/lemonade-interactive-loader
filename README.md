@@ -73,7 +73,7 @@ The main menu adapts based on whether you have a configuration saved:
 ```
 
 | Command | Description |
-|---------|-------------||
+|---------|-------------|
 | **▶️ Start Server** | Launch Lemonade Server with saved config (when config exists) |
 | **✏️ Edit Configuration** | Update your saved settings interactively |
 | **👁️ View Configuration** | See your current configuration and installed builds |
