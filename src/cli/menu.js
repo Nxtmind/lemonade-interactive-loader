@@ -17,19 +17,40 @@ async function showMainMenu() {
   console.log('╚════════════════════════════════════════════════════════╝');
   console.log('');
   
+  // Check if configuration exists
+  const config = loadConfig();
+  const hasConfig = Object.keys(config).length > 0;
+  
+  // Show message if no configuration exists
+  if (!hasConfig) {
+    console.log('⚠️  No configuration found. Please run Setup first.\n');
+  }
+  
+  // Build choices based on whether config exists
+  let choices;
+  if (hasConfig) {
+    choices = [
+      { name: '▶️  Start Server with Current Config', value: 'serve' },
+      { name: '✏️  Edit Configuration', value: 'edit' },
+      { name: '👁️  View Configuration', value: 'view' },
+      { name: '🔄 Reset Configuration', value: 'reset' },
+      new inquirer.Separator(' ──────────────────────────────────────'),
+      { name: '🚀 Setup - Configure Lemonade Server', value: 'setup' },
+      { name: '📦 Download Custom llama.cpp Builds', value: 'manage' }
+    ];
+  } else {
+    choices = [
+      { name: '🚀 Setup - Configure Lemonade Server', value: 'setup' },
+      { name: '📦 Download Custom llama.cpp Builds', value: 'manage' }
+    ];
+  }
+  
   const { command } = await inquirer.prompt([
     {
       type: 'list',
       name: 'command',
       message: 'What would you like to do?',
-      choices: [
-        { name: '🚀 Setup - Configure Lemonade Server', value: 'setup' },
-        { name: '🔄 Edit Configuration', value: 'edit' },
-        { name: '👁️  View Configuration', value: 'view' },
-        { name: '🔄 Reset Configuration', value: 'reset' },
-        { name: '📦 Manage llama.cpp Build Only', value: 'manage' },
-        { name: '🚀 Start Server with Current Config', value: 'serve' }
-      ]
+      choices: choices
     }
   ]);
   
@@ -272,6 +293,8 @@ async function handleCommand(command) {
     case 'reset':
       await resetConfiguration();
       break;
+      
+
       
     case 'manage':
       let manageAction;

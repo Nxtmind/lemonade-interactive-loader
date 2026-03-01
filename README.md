@@ -33,14 +33,35 @@ That's it! You'll be presented with a friendly menu to configure and run your se
 
 ### Interactive Menu Options
 
+The main menu adapts based on whether you have a configuration saved:
+
+**When NO configuration exists:**
+```
+? What would you like to do?
+❯ 🚀 Setup - Configure Lemonade Server
+  📦 Download Custom llama.cpp Builds
+```
+
+**When configuration EXISTS:**
+```
+? What would you like to do?
+❯ ▶️  Start Server with Current Config
+  ✏️  Edit Configuration
+  👁️  View Configuration
+  🔄 Reset Configuration
+  ──────────────────────────────────────
+  🚀 Setup - Configure Lemonade Server
+  📦 Download Custom llama.cpp Builds
+```
+
 | Command | Description |
-|---------|-------------|
-| **🚀 Setup** | Run the 8-question setup wizard to configure everything |
-| **🔄 Edit Configuration** | Update your saved settings interactively |
+|---------|-------------||
+| **▶️ Start Server** | Launch Lemonade Server with saved config (when config exists) |
+| **✏️ Edit Configuration** | Update your saved settings interactively |
 | **👁️ View Configuration** | See your current configuration and installed builds |
 | **🔄 Reset Configuration** | Start fresh by resetting all settings |
-| **📦 Manage Builds** | View, delete, or download custom llama.cpp builds |
-| **🚀 Start Server** | Launch Lemonade Server with your saved configuration |
+| **🚀 Setup** | Run the 8-question setup wizard to configure everything |
+| **📦 Download Builds** | View, delete, or download custom llama.cpp builds |
 
 ### The Setup Wizard
 
@@ -83,18 +104,35 @@ $ node index.js
 ║            🍋 Lemonade Interactive Launcher            ║
 ╚════════════════════════════════════════════════════════╝
 
+⚠️  No configuration found. Please run Setup first.
+
 ? What would you like to do?
 ❯ 🚀 Setup - Configure Lemonade Server
-  🔄 Edit Configuration
+  📦 Download Custom llama.cpp Builds
+```
+
+### After Configuration
+
+```bash
+$ node index.js
+
+╔════════════════════════════════════════════════════════╗
+║            🍋 Lemonade Interactive Launcher            ║
+╚════════════════════════════════════════════════════════╝
+
+? What would you like to do?
+❯ ▶️  Start Server with Current Config
+  ✏️  Edit Configuration
   👁️  View Configuration
   🔄 Reset Configuration
-  📦 Manage llama.cpp Build Only
-  🚀 Start Server with Current Config
+  ──────────────────────────────────────
+  🚀 Setup - Configure Lemonade Server
+  📦 Download Custom llama.cpp Builds
 ```
 
 ### Downloading a Custom Build
 
-1. Select **📦 Manage llama.cpp Build Only**
+1. Select **📦 Download Custom llama.cpp Builds**
 2. Choose **⬇️ Download new build**
 3. Pick a release from the list
 4. Select the asset for your platform

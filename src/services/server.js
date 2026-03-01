@@ -23,7 +23,7 @@ function buildServerArgs(config) {
   }
   
   if (llamacppArgs) {
-    args.push('--llamacpp-args', llamacppArgs);
+    args.push('--llamacpp-args', `"${llamacppArgs}"`);
   }
   
   return args;
@@ -113,7 +113,9 @@ async function launchLemonadeServer(config) {
   const envVars = {};
   if (backendTypeToUse && backendTypeToUse !== 'auto' && serverBinary) {
     const backendEnvVar = `LEMONADE_LLAMACPP_${backendTypeToUse.toUpperCase()}_BIN`;
-    envVars[backendEnvVar] = serverBinary;
+    // Point to the actual binary, not the directory
+    const binaryPath = findLlamaServer(customLlamacppPath || serverBinary);
+    envVars[backendEnvVar] = binaryPath;
   }
   
   if (!fs.existsSync(serverPath)) {
