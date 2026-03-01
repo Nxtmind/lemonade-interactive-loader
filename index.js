@@ -695,7 +695,6 @@ async function launchLemonadeServer(config) {
     console.log(`   ${serverPath}`);
     console.log('\n📥 How to Install Lemonade Server:');
     console.log('   Visit: https://lemonade-server.ai');
-    console.log('   Or install via npm: npm install -g lemonade-server');
     
     // Build and display the command that would be used
     console.log('\n🔧 Once installed, this is the command that will be run:');
@@ -931,32 +930,9 @@ async function selectInstalledAsset() {
       console.log(`  Backend Type: ${selectedInstalled.backendType.toUpperCase()}`);
       console.log(`  Server Binary: ${serverPath}`);
       
-      // Warn if auto backend is selected
-      const { backend } = await inquirer.prompt([
-        {
-          type: 'list',
-          name: 'backend',
-          message: 'Which backend will you primarily use?',
-          choices: [
-            { name: 'auto (automatically select best backend)', value: 'auto' },
-            { name: 'vulkan (GPU acceleration)', value: 'vulkan' },
-            { name: 'rocm (AMD GPU acceleration)', value: 'rocm' },
-            { name: 'cpu (CPU only)', value: 'cpu' }
-          ],
-          default: 'auto'
-        }
-      ]);
-      
-      if (backend === 'auto' && selectedInstalled.backendType !== 'auto') {
-        console.log(`\n⚠️  Note: You selected "auto" backend, but this build is optimized for ${selectedInstalled.backendType.toUpperCase()}.`);
-        console.log(`   The environment variable LEMONADE_LLAMACPP_${selectedInstalled.backendType.toUpperCase()}_BIN will be set.`);
-        console.log(`   Lemonade-server may still choose a different backend based on your system.`);
-      }
-      
       return {
         ...selectedInstalled,
-        serverPath,
-        selectedBackend: backend
+        serverPath
       };
     }
   }
@@ -965,15 +941,12 @@ async function selectInstalledAsset() {
 }
 
 /**
- * Interactive setup wizard with 8 questions
+ * Interactive setup wizard with 7 questions
  * @param {boolean} isEdit - If true, use saved values as defaults; if false, use original defaults
  */
 async function runSetupWizard(isEdit = false) {
-  console.log('');
-  console.log('╔════════════════════════════════════════════════════════╗');
-  console.log(isEdit ? '║     🍋 Lemonade Server Edit Configuration        ║' : '║     🍋 Lemonade Server Setup Wizard                    ║');
-  console.log('╚════════════════════════════════════════════════════════╝');
-  console.log('');
+  console.log(isEdit ? '🍋 Edit Configuration From Saved' : '🍋 Setup Configuration From Defaults');
+
   
   // Load existing config if available (only used in edit mode)
   const existingConfig = isEdit ? loadConfig() : {};
@@ -1017,23 +990,7 @@ async function runSetupWizard(isEdit = false) {
     }
   ]);
   
-  // Q4: llama.cpp backend
-  const { backend } = await inquirer.prompt([
-    {
-      type: 'list',
-      name: 'backend',
-      message: 'Which llama.cpp backend to use?',
-      choices: [
-        { name: 'auto (automatically select best backend)', value: 'auto' },
-        { name: 'vulkan (GPU acceleration)', value: 'vulkan' },
-        { name: 'rocm (AMD GPU acceleration)', value: 'rocm' },
-        { name: 'cpu (CPU only)', value: 'cpu' }
-      ],
-      default: existingConfig.backend || 'auto'
-    }
-  ]);
-  
-  // Q5: Custom model directory
+  // Q4: Custom model directory
   const existingModelDir = existingConfig.modelDir;
   const hasExistingModelDir = existingModelDir && existingModelDir !== 'None';
   
@@ -1042,7 +999,7 @@ async function runSetupWizard(isEdit = false) {
       type: 'confirm',
       name: 'useCustomModelDir',
       message: 'Is there another model directory to use? (example: LM Studio)',
-      default: hasExistingModelDir
+      default: false
     }
   ]);
   
@@ -1064,7 +1021,7 @@ async function runSetupWizard(isEdit = false) {
     finalModelDir = 'None';
   }
   
-  // Q6: System tray vs headless
+  // Q5: System tray vs headless
   const { runMode } = await inquirer.prompt([
     {
       type: 'list',
@@ -1078,7 +1035,7 @@ async function runSetupWizard(isEdit = false) {
     }
   ]);
   
-  // Q7: Custom llama.cpp args
+  // Q6: Custom llama.cpp args
   const existingLlamacppArgs = existingConfig.llamacppArgs || '';
   const hasExistingArgs = existingLlamacppArgs.length > 0;
   
@@ -1107,13 +1064,14 @@ async function runSetupWizard(isEdit = false) {
     finalLlamacppArgs = '';
   }
   
-  // Q8: Custom llama.cpp build
+  // Q7: Custom llama.cpp build
   const existingCustomPath = existingConfig.customLlamacppPath || '';
   const hasExistingBuild = existingCustomPath.length > 0;
   
   let customLlamacppPath;
   let customBackendType = existingConfig.customBackendType || '';
   let customServerPath = existingConfig.customServerPath || '';
+  let backend = existingConfig.backend || 'auto';
   
   const { useCustomBuild } = await inquirer.prompt([
     {
@@ -1142,11 +1100,8 @@ async function runSetupWizard(isEdit = false) {
         customLlamacppPath = installedAsset.installPath;
         customBackendType = installedAsset.backendType;
         customServerPath = installedAsset.serverPath;
-        
-        // Override backend if user selected a specific one
-        if (installedAsset.selectedBackend && installedAsset.selectedBackend !== 'auto') {
-          backend = installedAsset.selectedBackend;
-        }
+        // Backend will be set based on the custom build type
+        backend = customBackendType;
       } else {
         customLlamacppPath = '';
         customBackendType = '';
@@ -1169,6 +1124,22 @@ async function runSetupWizard(isEdit = false) {
       console.log(`  Backend Type: ${customBackendType.toUpperCase()}`);
     }
   } else {
+    // Only ask about backend if NOT using custom build
+    const { backend } = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'backend',
+        message: 'Which llama.cpp backend to use?',
+        choices: [
+          { name: 'auto (automatically select best backend)', value: 'auto' },
+          { name: 'vulkan (GPU acceleration)', value: 'vulkan' },
+          { name: 'rocm (AMD GPU acceleration)', value: 'rocm' },
+          { name: 'cpu (CPU only)', value: 'cpu' }
+        ],
+        default: existingConfig.backend || 'auto'
+      }
+    ]);
+    
     customLlamacppPath = '';
     customBackendType = '';
     customServerPath = '';
@@ -1226,12 +1197,35 @@ async function runSetupWizard(isEdit = false) {
 }
 
 /**
+ * Ask if user wants to launch the server
+ */
+async function askLaunchServer() {
+  const { launchNow } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'launchNow',
+      message: 'Would you like to launch the server now?',
+      default: true
+    }
+  ]);
+  
+  if (launchNow) {
+    const serverConfig = loadConfig();
+    if (Object.keys(serverConfig).length === 0) {
+      console.log('No configuration found. Please run "setup" first.');
+      return;
+    }
+    await launchLemonadeServer(serverConfig);
+  }
+}
+
+/**
  * Main interactive CLI workflow
  */
 async function main() {
   console.log('');
   console.log('╔════════════════════════════════════════════════════════╗');
-  console.log('║     🍋 Lemonade Llama Loader - Interactive CLI         ║');
+  console.log('║            🍋 Lemonade Interactive Launcher            ║');
   console.log('╚════════════════════════════════════════════════════════╝');
   console.log('');
   
@@ -1245,7 +1239,7 @@ async function main() {
         { name: '🔄 Edit Configuration', value: 'edit' },
         { name: '👁️  View Configuration', value: 'view' },
         { name: '🔄 Reset Configuration', value: 'reset' },
-        { name: '🍋 Download llama.cpp Build Only', value: 'download' },
+        { name: '📦 Manage llama.cpp Build Only', value: 'manage' },
         { name: '🚀 Start Server with Current Config', value: 'serve' }
       ]
     }
@@ -1254,9 +1248,11 @@ async function main() {
   switch (command) {
     case 'setup':
       await runSetupWizard(false);
+      await askLaunchServer();
       break;
     case 'edit':
       await runSetupWizard(true);
+      await askLaunchServer();
       break;
     case 'view':
       const config = loadConfig();
@@ -1309,25 +1305,106 @@ async function main() {
         console.log('Configuration reset successfully.');
       }
       break;
-    case 'download':
-      // First, ask if they want to use an already installed build
-      const { useInstalled } = await inquirer.prompt([
+    case 'manage':
+      // Show submenu for managing llama.cpp builds
+      const { manageAction } = await inquirer.prompt([
         {
-          type: 'confirm',
-          name: 'useInstalled',
-          message: 'View already installed custom builds?',
-          default: false
+          type: 'list',
+          name: 'manageAction',
+          message: 'What would you like to do?',
+          choices: [
+            { name: '👁️  View installed builds', value: 'view' },
+            { name: '🗑️  Delete installed build', value: 'delete' },
+            { name: '⬇️  Download new build', value: 'download' },
+            { name: '← Back to main menu', value: 'back' }
+          ]
         }
       ]);
       
-      if (useInstalled) {
-        const installedAsset = await selectInstalledAsset();
-        if (installedAsset) {
-          console.log(`\n✓ Selected: ${installedAsset.assetName}`);
-          console.log(`  Path: ${installedAsset.installPath}`);
-          console.log(`  Backend: ${installedAsset.backendType.toUpperCase()}`);
+      if (manageAction === 'view') {
+        const installedAssets = getAllInstalledAssets();
+        if (installedAssets.length === 0) {
+          console.log('\nNo custom llama.cpp builds installed.');
+        } else {
+          console.log('\n=== Installed Custom Builds ===\n');
+          installedAssets.forEach((asset, index) => {
+            const serverPath = getLlamaServerPath(asset.installPath);
+            console.log(`${index + 1}. ${asset.assetName}`);
+            console.log(`   Path: ${asset.installPath}`);
+            console.log(`   Backend: ${asset.backendType.toUpperCase()}`);
+            console.log(`   Installed: ${new Date(asset.installTime).toLocaleString()}`);
+            console.log(`   Server Binary: ${serverPath || 'Not found'}`);
+            console.log('');
+          });
         }
-      } else {
+      } else if (manageAction === 'delete') {
+        let continueDeleting = true;
+        
+        while (continueDeleting) {
+          const installedAssets = getAllInstalledAssets();
+          if (installedAssets.length === 0) {
+            console.log('\nNo custom llama.cpp builds installed.');
+            break;
+          }
+          
+          const choices = installedAssets.map((asset, index) => ({
+            name: `${asset.assetName} | Backend: ${asset.backendType.toUpperCase()} | ${new Date(asset.installTime).toLocaleDateString()}`,
+            value: index
+          }));
+          
+          choices.unshift({
+            name: '← Cancel',
+            value: -1
+          });
+          
+          const { deleteIndex } = await inquirer.prompt([
+            {
+              type: 'list',
+              name: 'deleteIndex',
+              message: 'Select a build to delete:',
+              choices: choices
+            }
+          ]);
+          
+          if (deleteIndex < 0) {
+            // User cancelled
+            break;
+          }
+          
+          const assetToDelete = installedAssets[deleteIndex];
+          const { confirmDelete } = await inquirer.prompt([
+            {
+              type: 'confirm',
+              name: 'confirmDelete',
+              message: `Are you sure you want to delete "${assetToDelete.assetName}"? This cannot be undone.`,
+              default: false
+            }
+          ]);
+          
+          if (confirmDelete) {
+            try {
+              fs.rmSync(assetToDelete.installPath, { recursive: true, force: true });
+              console.log(`✓ Deleted: ${assetToDelete.assetName}`);
+            } catch (error) {
+              console.error(`Error deleting build: ${error.message}`);
+            }
+          }
+          
+          // Always ask if they want to delete another after each deletion attempt
+          const { deleteAnother } = await inquirer.prompt([
+            {
+              type: 'confirm',
+              name: 'deleteAnother',
+              message: 'Do you want to delete another build?',
+              default: false
+            }
+          ]);
+          
+          if (!deleteAnother) {
+            continueDeleting = false;
+          }
+        }
+      } else if (manageAction === 'download') {
         // Download new build
         console.log('\nFetching recent llama.cpp builds...');
         const release = await selectLlamaCppRelease();
@@ -1336,6 +1413,27 @@ async function main() {
         const installPath = await downloadAndExtractLlamaCpp(asset, version);
         console.log(`\n✓ Build ready at: ${installPath}`);
         console.log(`  Backend Type: ${inferBackendType(asset.name).toUpperCase()}`);
+        
+        // Ask if they want to download another
+        const { downloadAnother } = await inquirer.prompt([
+          {
+            type: 'confirm',
+            name: 'downloadAnother',
+            message: 'Do you want to download another build?',
+            default: false
+          }
+        ]);
+        
+        if (downloadAnother) {
+          // Recursively call the download flow
+          console.log('\nFetching recent llama.cpp builds...');
+          const release2 = await selectLlamaCppRelease();
+          const asset2 = await selectAsset(release2);
+          const version2 = release2.tag_name;
+          const installPath2 = await downloadAndExtractLlamaCpp(asset2, version2);
+          console.log(`\n✓ Build ready at: ${installPath2}`);
+          console.log(`  Backend Type: ${inferBackendType(asset2.name).toUpperCase()}`);
+        }
       }
       break;
     case 'serve':
