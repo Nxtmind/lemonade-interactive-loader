@@ -1,7 +1,7 @@
 {
-  "name": "lemonade-llama-loader",
+  "name": "lemonade-interactive-loader",
   "version": "1.0.0",
-  "description": "Interactive CLI tool to download llama.cpp releases and launch Lemonade Server - Cross-platform (Windows/Linux)",
+  "description": "Interactive CLI tool to launch Lemonade Server with custom arguments and download llama.cpp releases - Cross-platform (Windows/Linux)",
   "main": "index.js",
   "bin": {
     "lemonade-loader": "./index.js"
