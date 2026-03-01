@@ -4,7 +4,7 @@
   "description": "Interactive CLI tool to launch Lemonade Server with custom arguments and download llama.cpp releases - Cross-platform (Windows/Linux)",
   "main": "index.js",
   "bin": {
-    "lemonade-loader": "./index.js"
+    "lemonade-interactive-loader": "./index.js"
   },
   "scripts": {
     "start": "node index.js",
