@@ -71,10 +71,29 @@ The CLI will support the following commands:
 4. **`lemonade config:reset`** - Reset configuration to defaults
 5. **`lemonade serve`** - Start server with current configuration
 
-## Next Steps
+## Implementation Status
 
-Once we align on these questions, we will:
-1. Update `index.js` to implement the interactive CLI
-2. Add configuration persistence logic
-3. Add commands for viewing and editing configuration
-4. Integrate with the `lemonade serve` command
+✅ **Completed**:
+1. ✅ Updated `index.js` with interactive CLI wizard
+2. ✅ Added configuration persistence to `~/.lemonade/config.json`
+3. ✅ Added commands for viewing, editing, and resetting configuration
+4. ✅ Integrated with the `lemonade serve` command
+5. ✅ Added support for downloading custom llama.cpp builds from GitHub
+6. ✅ Implemented backend selection (auto, vulkan, rocm, cpu)
+
+## Available Commands
+
+The CLI now supports the following commands via the main menu:
+
+1. **🚀 Setup** - Run the interactive setup wizard
+2. **🔄 Edit Configuration** - Update configuration interactively
+3. **👁️ View Configuration** - View current configuration
+4. **🔄 Reset Configuration** - Reset configuration to defaults
+5. **🍋 Download Build Only** - Download a llama.cpp build without launching
+6. **🚀 Start Server** - Start server with current configuration
+
+## Configuration Storage
+
+Configuration is stored at **user-level only**:
+- **Location**: `~/.lemonade/config.json`
+- **Purpose**: Persist user preferences across all projects and sessions

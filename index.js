@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 const https = require('https');
 const http = require('http');
 const fs = require('fs');
@@ -6,11 +7,15 @@ const os = require('os');
 const inquirer = require('inquirer');
 const tar = require('tar');
 const { execSync } = require('child_process');
+const zlib = require('zlib');
+const AdmZip = require('adm-zip');
 
 const GITHUB_RELEASES_URL = 'https://api.github.com/repos/ggml-org/llama.cpp/releases';
 
 // Configuration
-const DEFAULT_INSTALL_DIR = path.join(os.homedir(), '.lemonade-llamacpp');
+const USER_CONFIG_DIR = path.join(os.homedir(), '.lemonade');
+const USER_CONFIG_FILE = path.join(USER_CONFIG_DIR, 'config.json');
+const DEFAULT_LLAMACPP_INSTALL_DIR = path.join(os.homedir(), '.lemonade', 'llama-cpp');
 
 /**
  * Get default lemonade-server path based on OS
@@ -28,7 +33,34 @@ function getLemonadeServerDefaultPath() {
 const LEMONADE_SERVER_DEFAULT_PATH = getLemonadeServerDefaultPath();
 
 /**
- * Detect user's system for suggested asset
+ * Load user configuration
+ */
+function loadConfig() {
+  if (fs.existsSync(USER_CONFIG_FILE)) {
+    try {
+      const configData = fs.readFileSync(USER_CONFIG_FILE, 'utf-8');
+      return JSON.parse(configData);
+    } catch (error) {
+      console.warn(`Warning: Could not load config file: ${error.message}`);
+      return {};
+    }
+  }
+  return {};
+}
+
+/**
+ * Save user configuration
+ */
+function saveConfig(config) {
+  if (!fs.existsSync(USER_CONFIG_DIR)) {
+    fs.mkdirSync(USER_CONFIG_DIR, { recursive: true });
+  }
+  fs.writeFileSync(USER_CONFIG_FILE, JSON.stringify(config, null, 2), 'utf-8');
+  console.log(`\n✓ Configuration saved to ${USER_CONFIG_FILE}`);
+}
+
+/**
+ * Detect user's system for suggested asset - cross-platform
  */
 function detectSystem() {
   const platform = process.platform;
@@ -39,14 +71,159 @@ function detectSystem() {
   
   if (platform === 'win32') {
     osType = 'windows';
+    // Normalize Windows architecture
+    if (arch === 'x64') archType = 'x64';
+    else if (arch === 'arm64') archType = 'arm64';
+    else if (arch === 'ia32') archType = 'x86';
   } else if (platform === 'darwin') {
     osType = 'macos';
     if (arch === 'arm64') archType = 'arm64';
+    else if (arch === 'x64') archType = 'x64';
   } else if (platform === 'linux') {
     osType = 'linux';
+    if (arch === 'x64') archType = 'x64';
+    else if (arch === 'arm64') archType = 'arm64';
+    else if (arch === 'arm') archType = 'armv7l';
   }
   
   return { platform, arch: archType, osType };
+}
+
+/**
+ * Check if a specific asset is already installed
+ */
+function isAssetInstalled(version, assetName) {
+  const installDir = path.join(DEFAULT_LLAMACPP_INSTALL_DIR, version, assetName.replace('.tar.gz', '').replace('.zip', ''));
+  const markerFile = path.join(installDir, `.installed-${assetName}`);
+  return fs.existsSync(markerFile);
+}
+
+/**
+ * Mark an asset as installed
+ */
+function markAssetAsInstalled(version, assetName) {
+  const archiveBaseName = assetName.endsWith('.tar.gz') 
+    ? assetName.replace('.tar.gz', '')
+    : assetName.replace('.zip', '');
+  const installDir = path.join(DEFAULT_LLAMACPP_INSTALL_DIR, version, archiveBaseName);
+  const markerFile = path.join(installDir, `.installed-${assetName}`);
+  fs.writeFileSync(markerFile, new Date().toISOString(), 'utf-8');
+}
+
+/**
+ * Infer backend type from asset name
+ */
+function inferBackendType(assetName) {
+  const name = assetName.toLowerCase();
+  
+  if (name.includes('rocm') || name.includes('hip')) return 'rocm';
+  if (name.includes('vulkan')) return 'vulkan';
+  if (name.includes('cuda')) return 'cuda';
+  if (name.includes('cpu')) return 'cpu';
+  
+  // Default to cpu if no specific backend detected
+  return 'cpu';
+}
+
+/**
+ * Get all installed assets sorted by install time (newest first)
+ */
+function getAllInstalledAssets() {
+  const installedAssets = [];
+  
+  if (!fs.existsSync(DEFAULT_LLAMACPP_INSTALL_DIR)) {
+    return installedAssets;
+  }
+  
+  // Iterate through versions
+  const versions = fs.readdirSync(DEFAULT_LLAMACPP_INSTALL_DIR);
+  
+  for (const version of versions) {
+    const versionPath = path.join(DEFAULT_LLAMACPP_INSTALL_DIR, version);
+    
+    if (!fs.statSync(versionPath).isDirectory()) continue;
+    
+    // Iterate through asset directories
+    const assetDirs = fs.readdirSync(versionPath);
+    
+    for (const assetDir of assetDirs) {
+      const assetPath = path.join(versionPath, assetDir);
+      
+      if (!fs.statSync(assetPath).isDirectory()) continue;
+      
+      // Look for marker files
+      const entries = fs.readdirSync(assetPath);
+      const markerFiles = entries.filter(e => e.startsWith('.installed-'));
+      
+      for (const markerFile of markerFiles) {
+        const assetName = markerFile.replace('.installed-', '');
+        const installTime = fs.readFileSync(path.join(assetPath, markerFile), 'utf-8');
+        const backendType = inferBackendType(assetName);
+        
+        installedAssets.push({
+          version,
+          assetName,
+          installPath: assetPath,
+          installTime,
+          backendType
+        });
+      }
+    }
+  }
+  
+  // Sort by install time (newest first)
+  installedAssets.sort((a, b) => new Date(b.installTime) - new Date(a.installTime));
+  
+  return installedAssets;
+}
+
+/**
+ * Get the llama-server binary path for an installed asset
+ */
+function getLlamaServerPath(installPath) {
+  return findLlamaServer(installPath, 'tar');
+}
+
+/**
+ * Download and extract llama.cpp build to user directory
+ */
+async function downloadAndExtractLlamaCpp(asset, version) {
+  // Extract archive name without extension for subdirectory
+  const archiveName = asset.name;
+  const archiveBaseName = archiveName.endsWith('.tar.gz') 
+    ? archiveName.replace('.tar.gz', '')
+    : archiveName.replace('.zip', '');
+  
+  const installDir = path.join(DEFAULT_LLAMACPP_INSTALL_DIR, version, archiveBaseName);
+  
+  // Check if this specific asset is already installed
+  if (isAssetInstalled(version, asset.name)) {
+    console.log(`\n✓ ${asset.name} is already installed at ${installDir}`);
+    return installDir;
+  }
+  
+  if (!fs.existsSync(installDir)) {
+    fs.mkdirSync(installDir, { recursive: true });
+  }
+  
+  const archivePath = path.join(installDir, archiveName);
+  
+  console.log(`\nDownloading ${archiveName}...`);
+  await downloadFile(asset.browser_download_url, archivePath);
+  
+  console.log(`Extracting to ${installDir}...`);
+  await extractArchive(archivePath, installDir);
+  
+  // Clean up archive
+  if (fs.existsSync(archivePath)) {
+    fs.unlinkSync(archivePath);
+  }
+  
+  // Mark this asset as installed
+  markAssetAsInstalled(version, asset.name);
+  
+  console.log(`✓ ${asset.name} installed to ${installDir}`);
+  return installDir;
 }
 
 /**
@@ -171,7 +348,7 @@ function formatBytes(bytes) {
 }
 
 /**
- * Categorize asset based on its name
+ * Categorize asset based on its name - cross-platform
  * @param {string} assetName 
  * @returns {string} Category
  */
@@ -186,6 +363,7 @@ function categorizeAsset(assetName) {
   if (name.includes('cpu')) return 'CPU';
   if (name.includes('macos') || name.includes('xcframework')) return 'macOS';
   if (name.includes('ubuntu') || name.includes('linux')) return 'Linux';
+  if (name.includes('win') || name.includes('windows')) return 'Windows';
   
   return 'Other';
 }
@@ -276,10 +454,7 @@ function downloadFile(url, outputPath) {
 }
 
 /**
- * Extract downloaded archive
- * @param {string} archivePath 
- * @param {string} extractDir 
- * @returns {Promise<void>}
+ * Extract downloaded archive - cross-platform
  */
 async function extractArchive(archivePath, extractDir) {
   return new Promise((resolve, reject) => {
@@ -288,6 +463,7 @@ async function extractArchive(archivePath, extractDir) {
     console.log(`Extracting archive...`);
     
     if (assetType === 'tar') {
+      // tar library works cross-platform
       tar.x({
         file: archivePath,
         cwd: extractDir,
@@ -296,12 +472,12 @@ async function extractArchive(archivePath, extractDir) {
         resolve();
       }).catch(reject);
     } else if (assetType === 'zip') {
-      // Use unzip or yauzl for cross-platform zip extraction
+      // Use unzipper which works cross-platform
       const unzip = require('unzipper');
       fs.createReadStream(archivePath)
         .pipe(unzip.Extract({ path: extractDir }))
         .on('close', () => resolve())
-        .on('error', reject);
+        .on('error', (err) => reject(err));
     } else {
       reject(new Error(`Unsupported archive type: ${assetType}`));
     }
@@ -389,7 +565,7 @@ function launchLemonadeServer(config) {
   console.log('');
   
   try {
-    const output = execSync(`${serverPath} ${args.join(' ')}`, {
+    execSync(`${serverPath} ${args.join(' ')}`, {
       stdio: 'inherit',
       env: process.env
     });
@@ -402,35 +578,204 @@ function launchLemonadeServer(config) {
 }
 
 /**
- * Main interactive CLI workflow
+ * Build command arguments for cross-platform compatibility
  */
-async function main() {
-  console.log('');
-  console.log('╔════════════════════════════════════════════════════════╗');
-  console.log('║     🍋 Lemonade Llama Loader - Interactive CLI         ║');
-  console.log('╚════════════════════════════════════════════════════════╝');
+function buildServerArgs(config) {
+  const { host, port, logLevel, modelDir, llamacppArgs } = config;
+  const args = [
+    'serve',
+    '--log-level', logLevel || 'info',
+    '--host', host,
+    '--port', port.toString()
+  ];
+  
+  if (modelDir && modelDir !== 'None') {
+    args.push('--extra-models-dir', modelDir);
+  }
+  
+  if (llamacppArgs) {
+    args.push('--llamacpp-args', llamacppArgs);
+  }
+  
+  return args;
+}
+
+/**
+ * Format command for cross-platform display
+ */
+function formatCommand(serverPath, args, envVars = {}) {
+  const isWindows = process.platform === 'win32';
+  
+  if (isWindows) {
+    // Windows: set VAR=value command1 command2
+    let cmd = '';
+    for (const [key, value] of Object.entries(envVars)) {
+      if (value) {
+        cmd += `set ${key}="${value}" && `;
+      }
+    }
+    
+    // Quote paths with spaces
+    const quotedPath = serverPath.includes(' ') ? `"${serverPath}"` : serverPath;
+    const quotedArgs = args.map(arg => arg.includes(' ') ? `"${arg}"` : arg);
+    
+    return cmd + quotedPath + ' ' + quotedArgs.join(' ');
+  } else {
+    // Linux/Mac: VAR=value command1 command2
+    let cmd = '';
+    for (const [key, value] of Object.entries(envVars)) {
+      if (value) {
+        cmd += `${key}="${value}" `;
+      }
+    }
+    
+    const quotedArgs = args.map(arg => arg.includes(' ') ? `"${arg}"` : arg);
+    return cmd + serverPath + ' ' + quotedArgs.join(' ');
+  }
+}
+
+/**
+ * Launch lemonade-server with the specified configuration
+ */
+async function launchLemonadeServer(config) {
+  const { 
+    host, 
+    port, 
+    logLevel, 
+    modelDir, 
+    llamacppArgs,
+    runMode,
+    customLlamacppPath,
+    customBackendType,
+    customServerPath,
+    backend
+  } = config;
+  
+  console.log('\n=== Launching Lemonade Server ===\n');
+  console.log(`Host: ${host}`);
+  console.log(`Port: ${port}`);
+  console.log(`Log Level: ${logLevel}`);
+  console.log(`Backend: ${backend || 'auto'}`);
+  console.log(`Model Directory: ${modelDir || 'default'}`);
+  console.log(`Run Mode: ${runMode || 'headless'}`);
+  if (llamacppArgs) {
+    console.log(`llama.cpp Args: ${llamacppArgs}`);
+  }
+  if (customLlamacppPath) {
+    console.log(`Custom llama.cpp: ${customLlamacppPath}`);
+  }
   console.log('');
   
-  const systemInfo = detectSystem();
-  console.log(`Detected system: ${systemInfo.osType} (${systemInfo.arch})`);
-  console.log('');
+  // Build command based on configuration
+  const serverPath = LEMONADE_SERVER_DEFAULT_PATH;
+  const args = buildServerArgs(config);
   
-  // Fetch releases
-  console.log('Fetching available releases...');
+  // Determine backend type to use
+  let backendTypeToUse = customBackendType;
+  if (!backendTypeToUse && backend && backend !== 'auto') {
+    backendTypeToUse = backend;
+  }
+  
+  // Get server binary path for environment variable
+  let serverBinary = customServerPath;
+  if (!serverBinary && customLlamacppPath) {
+    serverBinary = findLlamaServer(customLlamacppPath, 'tar');
+  }
+  
+  // Build environment variables object
+  const envVars = {};
+  if (backendTypeToUse && backendTypeToUse !== 'auto' && serverBinary) {
+    const backendEnvVar = `LEMONADE_LLAMACPP_${backendTypeToUse.toUpperCase()}_BIN`;
+    envVars[backendEnvVar] = serverBinary;
+  }
+  
+  if (!fs.existsSync(serverPath)) {
+    console.error(`\n❌ Error: lemonade-server not found at ${serverPath}`);
+    console.log('\n📋 Expected Location:');
+    console.log(`   ${serverPath}`);
+    console.log('\n📥 How to Install Lemonade Server:');
+    console.log('   Visit: https://lemonade-server.ai');
+    console.log('   Or install via npm: npm install -g lemonade-server');
+    
+    // Build and display the command that would be used
+    console.log('\n🔧 Once installed, this is the command that will be run:');
+    const command = formatCommand(serverPath, args, envVars);
+    console.log(`   ${command}`);
+    
+    if (Object.keys(envVars).length > 0) {
+      console.log('\n💡 Environment Variable Set:');
+      for (const [key, value] of Object.entries(envVars)) {
+        console.log(`   ${key}=${value}`);
+      }
+    }
+    
+    console.log('\n💡 After installing lemonade-server, run this tool again to start the server.');
+    console.log('');
+    return;
+  }
+  
+  // Set environment variables
+  for (const [key, value] of Object.entries(envVars)) {
+    process.env[key] = value;
+    console.log(`Set ${key}=${value}`);
+  }
+  
+  if (Object.keys(envVars).length === 0) {
+    console.log('Using default backend configuration');
+  }
+  
+  console.log(`\nCommand: ${serverPath} ${args.join(' ')}`);
+  console.log('\nStarting server...\n');
+  
+  try {
+    // Use cross-platform command execution
+    const command = formatCommand(serverPath, args, {});
+    execSync(command, {
+      stdio: 'inherit',
+      env: process.env
+    });
+  } catch (error) {
+    console.error(`Server exited with error code: ${error.status}`);
+    if (error.status !== null) {
+      process.exit(error.status);
+    }
+  }
+}
+
+/**
+ * Show available llama.cpp releases and let user select one
+ */
+async function selectLlamaCppRelease() {
+  console.log('\nFetching available releases...');
   let releases;
   try {
-    releases = await fetchAllReleases(10);
+    releases = await fetchAllReleases(20);
     console.log(`Found ${releases.length} releases.\n`);
   } catch (error) {
     console.error(`Error fetching releases: ${error.message}`);
     process.exit(1);
   }
   
-  // Select release
-  const releaseChoices = releases.map(release => ({
-    name: `${release.tag_name} - ${new Date(release.published_at).toLocaleDateString()}`,
-    value: release
-  }));
+  const releaseChoices = releases.map(release => {
+    // Count how many assets from this release are installed
+    const serverAssets = filterServerAssets(release.assets);
+    const installedCount = serverAssets.filter(asset => 
+      isAssetInstalled(release.tag_name, asset.name)
+    ).length;
+    
+    const totalAssets = serverAssets.length;
+    let status = '';
+    if (installedCount === totalAssets && totalAssets > 0) {
+      status = ' ✓ All assets installed';
+    } else if (installedCount > 0) {
+      status = ` (${installedCount}/${totalAssets} installed)`;
+    }
+    
+    return {
+      name: `${release.tag_name} - ${new Date(release.published_at).toLocaleDateString()}${status}`,
+      value: release
+    };
+  });
   
   const { selectedRelease } = await inquirer.prompt([
     {
@@ -441,38 +786,86 @@ async function main() {
     }
   ]);
   
-  console.log(`\nSelected: ${selectedRelease.tag_name}`);
+  return selectedRelease;
+}
+
+/**
+ * Filter and present assets for selection - grouped by platform - cross-platform
+ */
+async function selectAsset(release) {
+  const systemInfo = detectSystem();
+  const serverAssets = filterServerAssets(release.assets);
   
-  // Filter and categorize assets
-  const serverAssets = filterServerAssets(selectedRelease.assets);
-  
-  // Group assets by category
-  const categorized = {};
+  // Group assets by platform first
+  const byPlatform = {};
   serverAssets.forEach(asset => {
-    const category = categorizeAsset(asset.name);
-    if (!categorized[category]) {
-      categorized[category] = [];
+    let platform = 'Other';
+    const name = asset.name.toLowerCase();
+    
+    if (name.includes('win') || name.includes('windows')) platform = 'Windows';
+    else if (name.includes('ubuntu') || name.includes('linux')) platform = 'Linux';
+    else if (name.includes('macos') || name.includes('mac')) platform = 'macOS';
+    else if (name.includes('rocm')) platform = 'ROCm (Linux)';
+    else if (name.includes('cuda')) platform = 'CUDA (Linux)';
+    
+    if (!byPlatform[platform]) {
+      byPlatform[platform] = [];
     }
-    categorized[category].push(asset);
+    byPlatform[platform].push(asset);
   });
   
-  // Create choices with categories
+  // Create choices with platform groups
   const assetChoices = [];
-  for (const [category, assets] of Object.entries(categorized)) {
+  for (const [platform, assets] of Object.entries(byPlatform)) {
     assetChoices.push({
-      name: `── ${category} ──`,
+      name: `── ${platform} ──`,
       disabled: true
     });
+    
     assets.forEach(asset => {
-      const suggested = (
-        (systemInfo.osType === 'windows' && asset.name.includes('win')) ||
-        (systemInfo.osType === 'linux' && asset.name.includes('ubuntu')) ||
-        (systemInfo.osType === 'macos' && asset.name.includes('macos'))
-      );
-      const marker = suggested ? ' ← Best match' : '';
+      const name = asset.name.toLowerCase();
+      
+      // Determine if this asset matches current system
+      let isCurrentPlatform = false;
+      
+      if (systemInfo.osType === 'windows' && platform === 'Windows') {
+        // Match Windows architecture
+        if (systemInfo.arch === 'x64' && name.includes('x64')) isCurrentPlatform = true;
+        else if (systemInfo.arch === 'arm64' && name.includes('arm64')) isCurrentPlatform = true;
+        else if (!name.includes('x64') && !name.includes('arm64')) isCurrentPlatform = true; // Generic Windows
+      } else if (systemInfo.osType === 'linux' && platform === 'Linux') {
+        // Match Linux architecture
+        if (systemInfo.arch === 'x64' && name.includes('x64')) isCurrentPlatform = true;
+        else if (systemInfo.arch === 'arm64' && name.includes('aarch64')) isCurrentPlatform = true;
+        else if (!name.includes('x64') && !name.includes('aarch64')) isCurrentPlatform = true; // Generic Linux
+      } else if (systemInfo.osType === 'macos' && platform === 'macOS') {
+        // Match macOS architecture
+        if (systemInfo.arch === 'arm64' && (name.includes('arm64') || name.includes('aarch64'))) isCurrentPlatform = true;
+        else if (systemInfo.arch === 'x64' && name.includes('x64')) isCurrentPlatform = true;
+        else if (!name.includes('arm64') && !name.includes('x64')) isCurrentPlatform = true; // Generic macOS
+      } else if (systemInfo.osType === 'linux' && platform.includes('ROCm')) {
+        // ROCm is Linux only, x64
+        if (systemInfo.arch === 'x64') isCurrentPlatform = true;
+      } else if (systemInfo.osType === 'linux' && platform.includes('CUDA')) {
+        // CUDA is typically Linux x64
+        if (systemInfo.arch === 'x64') isCurrentPlatform = true;
+      }
+      
+      // Check if this specific asset is already installed
+      const version = release.tag_name;
+      const isInstalled = isAssetInstalled(version, asset.name);
+      
+      let marker = '';
+      if (isInstalled) {
+        marker = ' ✓ Already installed';
+      } else if (isCurrentPlatform) {
+        marker = ' ← Best match';
+      }
+      
       assetChoices.push({
         name: `${asset.name} (${formatBytes(asset.size)})${marker}`,
-        value: asset
+        value: asset,
+        disabled: false  // Allow selection even if already installed
       });
     });
   }
@@ -486,149 +879,473 @@ async function main() {
     }
   ]);
   
-  console.log(`\nSelected: ${selectedAsset.name}`);
+  return selectedAsset;
+}
+
+/**
+ * Select from already installed assets
+ */
+async function selectInstalledAsset() {
+  const installedAssets = getAllInstalledAssets();
   
-  // Setup install directory
-  const installDir = process.env.LEMONADE_LLAMACPP_DIR || DEFAULT_INSTALL_DIR;
-  const releaseDir = path.join(installDir, selectedRelease.tag_name);
-  const archivePath = path.join(releaseDir, `${selectedAsset.name}`);
-  
-  // Ensure directory exists
-  if (!fs.existsSync(releaseDir)) {
-    fs.mkdirSync(releaseDir, { recursive: true });
+  if (installedAssets.length === 0) {
+    console.log('\nNo custom llama.cpp builds installed.');
+    return null;
   }
   
-  // Download
-  console.log(`\nDownload destination: ${releaseDir}`);
+  const choices = installedAssets.map((asset, index) => {
+    const installDate = new Date(asset.installTime).toLocaleString();
+    const backendType = asset.backendType.toUpperCase();
+    const serverPath = getLlamaServerPath(asset.installPath);
+    const hasServer = serverPath ? '✓' : '✗';
+    
+    return {
+      name: `[${index + 1}] ${asset.assetName} | Backend: ${backendType} | Installed: ${installDate} | Server: ${hasServer}`,
+      value: asset
+    };
+  });
   
-  if (!fs.existsSync(archivePath)) {
-    await downloadFile(selectedAsset.browser_download_url, archivePath);
-  } else {
-    console.log('Archive already exists, skipping download.');
-  }
+  // Add option to skip
+  choices.unshift({
+    name: '── Skip - Use bundled build ──',
+    value: null,
+    disabled: false
+  });
   
-  // Extract
-  const extractDir = releaseDir;
-  await extractArchive(archivePath, extractDir);
-  
-  // Find llama-server
-  const serverBinary = findLlamaServer(extractDir, getAssetType(selectedAsset.name));
-  
-  if (!serverBinary) {
-    console.error('\nError: Could not find llama-server binary in extracted files.');
-    console.log(`Extraction directory: ${extractDir}`);
-    process.exit(1);
-  }
-  
-  console.log(`\n✓ Found llama-server: ${serverBinary}`);
-  
-  // Determine environment variable based on asset type
-  const category = categorizeAsset(selectedAsset.name);
-  let envVarName = 'LEMONADE_LLAMACPP_CPU_BIN';
-  let envVarDesc = 'CPU';
-  
-  if (category === 'ROCm' || category === 'SYCL') {
-    envVarName = 'LEMONADE_LLAMACPP_ROCM_BIN';
-    envVarDesc = 'ROCm';
-  } else if (category === 'Vulkan' || category === 'OpenCL') {
-    envVarName = 'LEMONADE_LLAMACPP_VULKAN_BIN';
-    envVarDesc = 'Vulkan';
-  } else if (category === 'CUDA') {
-    envVarName = 'LEMONADE_LLAMACPP_CUDA_BIN';
-    envVarDesc = 'CUDA';
-  }
-  
-  console.log(`\nEnvironment variable: ${envVarName} (${envVarDesc} backend)`);
-  
-  // Configure launch settings
-  const launchConfig = await inquirer.prompt([
+  const { selectedInstalled } = await inquirer.prompt([
     {
-      type: 'input',
-      name: 'serverPath',
-      message: 'Path to lemonade-server:',
-      default: LEMONADE_SERVER_DEFAULT_PATH,
-      validate: (input) => {
-        if (fs.existsSync(input)) return true;
-        return 'File does not exist. Continue anyway?';
+      type: 'list',
+      name: 'selectedInstalled',
+      message: 'Select an installed custom build (or skip):',
+      choices: choices
+    }
+  ]);
+  
+  if (selectedInstalled) {
+    const serverPath = getLlamaServerPath(selectedInstalled.installPath);
+    if (!serverPath) {
+      console.log('\n⚠️  Warning: llama-server binary not found in this installation.');
+      console.log('   If you selected "auto" backend, it may not use this binary.');
+    } else {
+      console.log(`\n✓ Selected: ${selectedInstalled.assetName}`);
+      console.log(`  Backend Type: ${selectedInstalled.backendType.toUpperCase()}`);
+      console.log(`  Server Binary: ${serverPath}`);
+      
+      // Warn if auto backend is selected
+      const { backend } = await inquirer.prompt([
+        {
+          type: 'list',
+          name: 'backend',
+          message: 'Which backend will you primarily use?',
+          choices: [
+            { name: 'auto (automatically select best backend)', value: 'auto' },
+            { name: 'vulkan (GPU acceleration)', value: 'vulkan' },
+            { name: 'rocm (AMD GPU acceleration)', value: 'rocm' },
+            { name: 'cpu (CPU only)', value: 'cpu' }
+          ],
+          default: 'auto'
+        }
+      ]);
+      
+      if (backend === 'auto' && selectedInstalled.backendType !== 'auto') {
+        console.log(`\n⚠️  Note: You selected "auto" backend, but this build is optimized for ${selectedInstalled.backendType.toUpperCase()}.`);
+        console.log(`   The environment variable LEMONADE_LLAMACPP_${selectedInstalled.backendType.toUpperCase()}_BIN will be set.`);
+        console.log(`   Lemonade-server may still choose a different backend based on your system.`);
       }
-    },
+      
+      return {
+        ...selectedInstalled,
+        serverPath,
+        selectedBackend: backend
+      };
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Interactive setup wizard with 8 questions
+ * @param {boolean} isEdit - If true, use saved values as defaults; if false, use original defaults
+ */
+async function runSetupWizard(isEdit = false) {
+  console.log('');
+  console.log('╔════════════════════════════════════════════════════════╗');
+  console.log(isEdit ? '║     🍋 Lemonade Server Edit Configuration        ║' : '║     🍋 Lemonade Server Setup Wizard                    ║');
+  console.log('╚════════════════════════════════════════════════════════╝');
+  console.log('');
+  
+  // Load existing config if available (only used in edit mode)
+  const existingConfig = isEdit ? loadConfig() : {};
+  
+  // Q1: Local network exposure
+  const { exposeToNetwork } = await inquirer.prompt([
     {
-      type: 'input',
-      name: 'modelDir',
-      message: 'Model directory:',
-      default: path.join(os.homedir, '.lmstudio', 'models')
-    },
+      type: 'confirm',
+      name: 'exposeToNetwork',
+      message: 'Do you want to expose the server to the local network?',
+      default: existingConfig.exposeToNetwork || false
+    }
+  ]);
+  
+  const host = exposeToNetwork ? '0.0.0.0' : '127.0.0.1';
+  
+  // Q2: Port selection
+  const { port } = await inquirer.prompt([
     {
       type: 'input',
       name: 'port',
-      message: 'Server port:',
-      default: '8000',
-      validate: (input) => !isNaN(input) && parseInt(input) > 0 && parseInt(input) < 65536 || 'Invalid port number'
-    },
-    {
-      type: 'input',
-      name: 'host',
-      message: 'Host to bind:',
-      default: '0.0.0.0'
-    },
-    {
-      type: 'input',
-      name: 'ctxSize',
-      message: 'Context size:',
-      default: '131072',
-      validate: (input) => !isNaN(input) && parseInt(input) > 0 || 'Invalid context size'
-    },
+      message: 'What port would you like the server to run on?',
+      default: existingConfig.port || '8080',
+      validate: (input) => !isNaN(input) && parseInt(input) > 0 && parseInt(input) < 65536 || 'Invalid port number (must be 1-65535)'
+    }
+  ]);
+  
+  // Q3: Logging level
+  const { logLevel } = await inquirer.prompt([
     {
       type: 'list',
       name: 'logLevel',
-      message: 'Log level:',
-      choices: ['debug', 'info', 'warn', 'error'],
-      default: 'debug'
-    },
+      message: 'What logging level do you want?',
+      choices: [
+        { name: 'info (default)', value: 'info' },
+        { name: 'debug (verbose)', value: 'debug' },
+        { name: 'warning (warnings only)', value: 'warning' },
+        { name: 'error (errors only)', value: 'error' }
+      ],
+      default: existingConfig.logLevel || 'info'
+    }
+  ]);
+  
+  // Q4: llama.cpp backend
+  const { backend } = await inquirer.prompt([
     {
-      type: 'input',
-      name: 'llamacppArgs',
-      message: 'Extra llama.cpp arguments (optional):',
-      default: '--no-mmap'
-    },
+      type: 'list',
+      name: 'backend',
+      message: 'Which llama.cpp backend to use?',
+      choices: [
+        { name: 'auto (automatically select best backend)', value: 'auto' },
+        { name: 'vulkan (GPU acceleration)', value: 'vulkan' },
+        { name: 'rocm (AMD GPU acceleration)', value: 'rocm' },
+        { name: 'cpu (CPU only)', value: 'cpu' }
+      ],
+      default: existingConfig.backend || 'auto'
+    }
+  ]);
+  
+  // Q5: Custom model directory
+  const existingModelDir = existingConfig.modelDir;
+  const hasExistingModelDir = existingModelDir && existingModelDir !== 'None';
+  
+  const { useCustomModelDir } = await inquirer.prompt([
     {
       type: 'confirm',
-      name: 'setEnv',
-      message: 'Set environment variable for this session?',
-      default: true
-    },
+      name: 'useCustomModelDir',
+      message: 'Is there another model directory to use? (example: LM Studio)',
+      default: hasExistingModelDir
+    }
+  ]);
+  
+  let finalModelDir;
+  let modelDir;
+  
+  if (useCustomModelDir) {
+    const modelDirAnswer = await inquirer.prompt([
+      {
+        type: 'input',
+        name: 'modelDir',
+        message: 'Enter the model directory path:',
+        default: existingModelDir || './models'
+      }
+    ]);
+    modelDir = modelDirAnswer.modelDir;
+    finalModelDir = modelDir;
+  } else {
+    finalModelDir = 'None';
+  }
+  
+  // Q6: System tray vs headless
+  const { runMode } = await inquirer.prompt([
+    {
+      type: 'list',
+      name: 'runMode',
+      message: 'Do you want a system tray or headless?',
+      choices: [
+        { name: 'system-tray (with system tray icon)', value: 'system-tray' },
+        { name: 'headless (background service)', value: 'headless' }
+      ],
+      default: existingConfig.runMode || 'system-tray'
+    }
+  ]);
+  
+  // Q7: Custom llama.cpp args
+  const existingLlamacppArgs = existingConfig.llamacppArgs || '';
+  const hasExistingArgs = existingLlamacppArgs.length > 0;
+  
+  let finalLlamacppArgs;
+  
+  const { useCustomArgs } = await inquirer.prompt([
     {
       type: 'confirm',
-      name: 'launch',
-      message: 'Launch lemonade-server now?',
+      name: 'useCustomArgs',
+      message: 'Are there any llama.cpp args you need to set?',
+      default: hasExistingArgs
+    }
+  ]);
+  
+  if (useCustomArgs) {
+    const argsAnswer = await inquirer.prompt([
+      {
+        type: 'input',
+        name: 'llamacppArgs',
+        message: 'Enter llama.cpp arguments (comma-separated, e.g., --ctx-size 4096,--batch-size 512):',
+        default: existingLlamacppArgs
+      }
+    ]);
+    finalLlamacppArgs = argsAnswer.llamacppArgs;
+  } else {
+    finalLlamacppArgs = '';
+  }
+  
+  // Q8: Custom llama.cpp build
+  const existingCustomPath = existingConfig.customLlamacppPath || '';
+  const hasExistingBuild = existingCustomPath.length > 0;
+  
+  let customLlamacppPath;
+  let customBackendType = existingConfig.customBackendType || '';
+  let customServerPath = existingConfig.customServerPath || '';
+  
+  const { useCustomBuild } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'useCustomBuild',
+      message: 'Do you want to use a different build for llama cpp?',
+      default: hasExistingBuild
+    }
+  ]);
+  
+  if (useCustomBuild) {
+    // First, ask if they want to use an already installed build
+    const { useInstalled } = await inquirer.prompt([
+      {
+        type: 'confirm',
+        name: 'useInstalled',
+        message: 'Use an already installed custom build?',
+        default: hasExistingBuild
+      }
+    ]);
+    
+    if (useInstalled) {
+      const installedAsset = await selectInstalledAsset();
+      
+      if (installedAsset) {
+        customLlamacppPath = installedAsset.installPath;
+        customBackendType = installedAsset.backendType;
+        customServerPath = installedAsset.serverPath;
+        
+        // Override backend if user selected a specific one
+        if (installedAsset.selectedBackend && installedAsset.selectedBackend !== 'auto') {
+          backend = installedAsset.selectedBackend;
+        }
+      } else {
+        customLlamacppPath = '';
+        customBackendType = '';
+        customServerPath = '';
+      }
+    } else {
+      // Download new build
+      console.log('\nFetching recent llama.cpp builds...');
+      const release = await selectLlamaCppRelease();
+      const asset = await selectAsset(release);
+      
+      const version = release.tag_name;
+      customLlamacppPath = await downloadAndExtractLlamaCpp(asset, version);
+      
+      // Infer backend type from the downloaded asset
+      customBackendType = inferBackendType(asset.name);
+      customServerPath = getLlamaServerPath(customLlamacppPath);
+      
+      console.log(`\n✓ Custom llama.cpp build installed at: ${customLlamacppPath}`);
+      console.log(`  Backend Type: ${customBackendType.toUpperCase()}`);
+    }
+  } else {
+    customLlamacppPath = '';
+    customBackendType = '';
+    customServerPath = '';
+  }
+  
+  // Save configuration
+  const config = {
+    exposeToNetwork,
+    host,
+    port: parseInt(port),
+    logLevel,
+    backend,
+    modelDir: finalModelDir,
+    runMode,
+    llamacppArgs: finalLlamacppArgs,
+    customLlamacppPath,
+    customBackendType,
+    customServerPath,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  
+  const { saveConfiguration } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'saveConfiguration',
+      message: 'Do you want to save this configuration for future use?',
       default: true
     }
   ]);
   
-  // Set environment variable if requested
-  if (launchConfig.setEnv) {
-    setEnvVariable(envVarName, serverBinary);
+  if (saveConfiguration) {
+    saveConfig(config);
   }
   
-  // Launch server if requested
-  if (launchConfig.launch) {
-    launchLemonadeServer({
-      serverPath: launchConfig.serverPath,
-      modelDir: launchConfig.modelDir,
-      llamacppArgs: launchConfig.llamacppArgs,
-      logLevel: launchConfig.logLevel,
-      host: launchConfig.host,
-      port: parseInt(launchConfig.port),
-      ctxSize: parseInt(launchConfig.ctxSize)
-    });
+  // Display summary
+  console.log('\n=== Configuration Summary ===\n');
+  console.log(`Host: ${host}`);
+  console.log(`Port: ${port}`);
+  console.log(`Log Level: ${logLevel}`);
+  console.log(`Backend: ${backend}`);
+  console.log(`Model Directory: ${finalModelDir}`);
+  console.log(`Run Mode: ${runMode}`);
+  console.log(`llama.cpp Args: ${finalLlamacppArgs || 'None'}`);
+  if (customLlamacppPath) {
+    console.log(`Custom llama.cpp Build: ${customLlamacppPath}`);
+    console.log(`  Backend Type: ${customBackendType.toUpperCase()}`);
+    console.log(`  Server Binary: ${customServerPath || 'Not found'}`);
   } else {
-    console.log('\n=== Summary ===');
-    console.log(`llama-server binary: ${serverBinary}`);
-    console.log(`Environment variable: ${envVarName}=${serverBinary}`);
-    console.log(`Install directory: ${releaseDir}`);
-    console.log('\nTo launch manually:');
-    console.log(`  export ${envVarName}="${serverBinary}"`);
-    console.log(`  ${launchConfig.serverPath} serve --log-level ${launchConfig.logLevel} --ctx-size ${launchConfig.ctxSize} --host ${launchConfig.host} --port ${launchConfig.port} --extra-models-dir "${launchConfig.modelDir}" --llamacpp-args "${launchConfig.llamacppArgs}"`);
+    console.log(`Custom llama.cpp Build: Using bundled build`);
+  }
+  console.log('');
+  
+  return config;
+}
+
+/**
+ * Main interactive CLI workflow
+ */
+async function main() {
+  console.log('');
+  console.log('╔════════════════════════════════════════════════════════╗');
+  console.log('║     🍋 Lemonade Llama Loader - Interactive CLI         ║');
+  console.log('╚════════════════════════════════════════════════════════╝');
+  console.log('');
+  
+  const { command } = await inquirer.prompt([
+    {
+      type: 'list',
+      name: 'command',
+      message: 'What would you like to do?',
+      choices: [
+        { name: '🚀 Setup - Configure Lemonade Server', value: 'setup' },
+        { name: '🔄 Edit Configuration', value: 'edit' },
+        { name: '👁️  View Configuration', value: 'view' },
+        { name: '🔄 Reset Configuration', value: 'reset' },
+        { name: '🍋 Download llama.cpp Build Only', value: 'download' },
+        { name: '🚀 Start Server with Current Config', value: 'serve' }
+      ]
+    }
+  ]);
+  
+  switch (command) {
+    case 'setup':
+      await runSetupWizard(false);
+      break;
+    case 'edit':
+      await runSetupWizard(true);
+      break;
+    case 'view':
+      const config = loadConfig();
+      if (Object.keys(config).length === 0) {
+        console.log('No configuration found. Run "setup" to configure.');
+      } else {
+        console.log('\n=== Current Configuration ===\n');
+        console.log(`Host: ${config.host}`);
+        console.log(`Port: ${config.port}`);
+        console.log(`Log Level: ${config.logLevel}`);
+        console.log(`Backend: ${config.backend}`);
+        console.log(`Model Directory: ${config.modelDir}`);
+        console.log(`Run Mode: ${config.runMode}`);
+        console.log(`llama.cpp Args: ${config.llamacppArgs || 'None'}`);
+        if (config.customLlamacppPath) {
+          console.log(`Custom llama.cpp Build: ${config.customLlamacppPath}`);
+          console.log(`  Backend Type: ${config.customBackendType?.toUpperCase() || 'Unknown'}`);
+          console.log(`  Server Binary: ${config.customServerPath || 'Not found'}`);
+        } else {
+          console.log(`Custom llama.cpp Build: Using bundled build`);
+        }
+        
+        // Show all installed builds
+        const installedAssets = getAllInstalledAssets();
+        if (installedAssets.length > 0) {
+          console.log('\n=== All Installed Custom Builds ===\n');
+          installedAssets.forEach((asset, index) => {
+            const serverPath = getLlamaServerPath(asset.installPath);
+            console.log(`${index + 1}. ${asset.assetName}`);
+            console.log(`   Path: ${asset.installPath}`);
+            console.log(`   Backend: ${asset.backendType.toUpperCase()}`);
+            console.log(`   Installed: ${new Date(asset.installTime).toLocaleString()}`);
+            console.log(`   Server Binary: ${serverPath || 'Not found'}`);
+            console.log('');
+          });
+        }
+      }
+      break;
+    case 'reset':
+      const { confirmReset } = await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'confirmReset',
+          message: 'Are you sure you want to reset all configuration? This cannot be undone.',
+          default: false
+        }
+      ]);
+      if (confirmReset && fs.existsSync(USER_CONFIG_FILE)) {
+        fs.unlinkSync(USER_CONFIG_FILE);
+        console.log('Configuration reset successfully.');
+      }
+      break;
+    case 'download':
+      // First, ask if they want to use an already installed build
+      const { useInstalled } = await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'useInstalled',
+          message: 'View already installed custom builds?',
+          default: false
+        }
+      ]);
+      
+      if (useInstalled) {
+        const installedAsset = await selectInstalledAsset();
+        if (installedAsset) {
+          console.log(`\n✓ Selected: ${installedAsset.assetName}`);
+          console.log(`  Path: ${installedAsset.installPath}`);
+          console.log(`  Backend: ${installedAsset.backendType.toUpperCase()}`);
+        }
+      } else {
+        // Download new build
+        console.log('\nFetching recent llama.cpp builds...');
+        const release = await selectLlamaCppRelease();
+        const asset = await selectAsset(release);
+        const version = release.tag_name;
+        const installPath = await downloadAndExtractLlamaCpp(asset, version);
+        console.log(`\n✓ Build ready at: ${installPath}`);
+        console.log(`  Backend Type: ${inferBackendType(asset.name).toUpperCase()}`);
+      }
+      break;
+    case 'serve':
+      const serverConfig = loadConfig();
+      if (Object.keys(serverConfig).length === 0) {
+        console.log('No configuration found. Please run "setup" first.');
+        return;
+      }
+      await launchLemonadeServer(serverConfig);
+      break;
   }
 }
 
@@ -640,7 +1357,14 @@ module.exports = {
   extractArchive,
   findLlamaServer,
   categorizeAsset,
-  filterServerAssets
+  filterServerAssets,
+  loadConfig,
+  saveConfig,
+  launchLemonadeServer,
+  runSetupWizard,
+  getAllInstalledAssets,
+  inferBackendType,
+  selectInstalledAsset
 };
 
 // Run main if executed directly

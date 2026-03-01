@@ -1,25 +1,38 @@
 {
   "name": "lemonade-llama-loader",
   "version": "1.0.0",
-  "description": "Interactive CLI tool to download llama.cpp releases and launch Lemonade Server",
+  "description": "Interactive CLI tool to download llama.cpp releases and launch Lemonade Server - Cross-platform (Windows/Linux)",
   "main": "index.js",
   "bin": {
     "lemonade-loader": "./index.js"
   },
   "scripts": {
     "start": "node index.js",
+    "dev": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
     "llama.cpp",
     "lemonade",
     "llm",
-    "cli"
+    "cli",
+    "cross-platform",
+    "windows",
+    "linux"
   ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "os": [
+    "win32",
+    "linux",
+    "darwin"
+  ],
   "dependencies": {
+    "adm-zip": "^0.5.16",
     "inquirer": "^8.2.6",
     "tar": "^7.5.9",
     "unzipper": "^0.12.3"
