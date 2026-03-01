@@ -1,27 +1,45 @@
-# 🍋 Lemonade Launcher
+# 🍋 Lemonade Interactive Loader
 
-[![License: ISC](https://img.shields.io/badge/Lxicense-ISC-blue.svg)](https://opensource.org/licenses/ISC)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
+[![npm version](https://badge.fury.io/js/lemonade-interactive-loader.svg)](https://www.npmjs.com/package/lemonade-interactive-loader)
+[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D14.0.0-brightgreen.svg)](https://nodejs.org/)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](#)
 
 **The easiest way to manage llama.cpp builds and run Lemonade Server**
 
-Lemonade Launcher is a professional, cross-platform CLI tool that simplifies downloading llama.cpp builds and launching Lemonade Server with an intuitive interactive interface.
+Lemonade Interactive Loader is a professional, cross-platform CLI tool that simplifies downloading llama.cpp builds and launching Lemonade Server with an intuitive interactive interface.
 
 ## 🚀 Quick Start
 
 ### Installation
 
+**Option 1: Install globally via npm**
 ```bash
-git clone https://github.com/yourusername/lemonade-launcher.git
-cd lemonade-launcher
+npm install -g lemonade-interactive-loader
+```
+
+**Option 2: Run without installing (via npx)**
+```bash
+npx lemonade-interactive-loader
+```
+
+**Option 3: Install from source**
+```bash
+git clone https://github.com/yourusername/lemonade-interactive-loader.git
+cd lemonade-interactive-loader
 npm install
 ```
 
 ### Running the Tool
 
 ```bash
-# Start the interactive CLI
+# If installed globally
+lemonade-loader
+
+# Or via npx (no installation needed)
+npx lemonade-interactive-loader
+
+# From source
 npm start
 # or
 node index.js
