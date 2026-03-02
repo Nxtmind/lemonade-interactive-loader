@@ -24,7 +24,18 @@ This document outlines the questions we will ask users to configure their Lemona
   - `error`
 - Description: Controls the verbosity of log output.
 
-**Q4: Which llama.cpp backend to use?**
+**Q4: How big should the context window be?**
+- Options:
+  - `4K` (4096 tokens) - default
+  - `8K` (8192 tokens)
+  - `16K` (16384 tokens)
+  - `32K` (32768 tokens)
+  - `64K` (65536 tokens)
+  - `128K` (131072 tokens)
+  - `256K` (262144 tokens)
+- Description: Sets the maximum number of tokens the model can consider at once. Larger context windows allow for longer conversations and documents but require more memory.
+
+**Q5: Which llama.cpp backend to use**?
 - Options:
   - `auto` (default) - Automatically select the best backend
   - `vulkan` - Vulkan GPU acceleration
@@ -32,23 +43,23 @@ This document outlines the questions we will ask users to configure their Lemona
   - `cpu` - CPU-only inference
 - Description: Select the hardware backend for model inference.
 
-**Q5: Is there another model directory to use? (example: LM Studio)**
+**Q6: Is there another model directory to use? (example: LM Studio)**
 - Input: Text path (optional)
 - Default: `None`
 - Description: Path to an existing model directory. Users can point to models from LM Studio or other sources. Leave empty or select "None" to use default.
 
-**Q6: Do you want a system tray or headless?**
+**Q7: Do you want a system tray or headless?**
 - Options:
   - `system-tray` (default) - Run with a system tray icon for easy control
   - `headless` - Run as a background service without UI
 - Description: Choose between running with a system tray interface or as a headless service.
 
-**Q7: Are there any llama.cpp args you need to set?**
+**Q8: Are there any llama.cpp args you need to set?**
 - Input: Text (comma-separated arguments)
 - Default: Empty
 - Description: Additional command-line arguments to pass to llama.cpp. Example: `--ctx-size 4096,--batch-size 512`
 
-**Q8: Do you want to use a different build for llama cpp? (download from GitHub)?**
+**Q9: Do you want to use a different build for llama cpp? (download from GitHub)?**
 - Options:
   - `yes` - Download a specific build from GitHub
   - `no` (default) - Use the bundled build

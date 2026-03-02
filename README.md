@@ -83,16 +83,17 @@ The main menu adapts based on whether you have a configuration saved:
 
 ### The Setup Wizard
 
-Just answer 8 simple questions:
+Just answer 9 simple questions:
 
 1. **Network access?** Should the server be accessible from other devices?
 2. **Port number?** Which port should it run on? (default: 8080)
 3. **Logging level?** Choose from info, debug, warning, or error
-4. **Model directory?** Point to existing models (like LM Studio) if needed
-5. **Interface type?** System tray or headless mode
-6. **Custom arguments?** Any additional llama.cpp parameters?
-7. **Custom build?** Use a specific llama.cpp build from GitHub?
-8. **Backend?** Choose auto, vulkan, rocm, or cpu
+4. **Context window size?** Choose from 4K, 8K, 16K, 32K, 64K, 128K, or 256K tokens (default: 4K)
+5. **Model directory?** Point to existing models (like LM Studio) if needed
+6. **Interface type?** System tray or headless mode
+7. **Custom arguments?** Any additional llama.cpp parameters?
+8. **Custom build?** Use a specific llama.cpp build from GitHub?
+9. **Backend?** Choose auto, vulkan, rocm, or cpu
 
 ## ✨ Key Features
 

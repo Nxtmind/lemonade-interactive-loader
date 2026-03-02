@@ -1,5 +1,5 @@
 const inquirer = require('inquirer');
-const { DEFAULTS, BACKEND_TYPES, LOG_LEVELS, RUN_MODES, HOSTS } = require('../config/constants');
+const { DEFAULTS, BACKEND_TYPES, LOG_LEVELS, RUN_MODES, HOSTS, CONTEXT_SIZES } = require('../config/constants');
 const { loadConfig, saveConfig } = require('../config');
 const { selectLlamaCppRelease, selectAsset, selectInstalledAssetPrompt, displayConfigSummary } = require('./prompts');
 const { downloadAndExtractLlamaCpp } = require('../services/asset-manager');
@@ -54,9 +54,35 @@ async function runSetupWizard(isEdit = false) {
     }
   ]);
   
-  // Q4: Custom model directory
+  // Q4: Context window size
+  const savedContextSize = existingConfig.contextSize || DEFAULTS.CONTEXT_SIZE;
+  const contextSizeChoices = [
+    { name: '4K (4096 tokens) - Default', value: CONTEXT_SIZES['4K'] },
+    { name: '8K (8192 tokens)', value: CONTEXT_SIZES['8K'] },
+    { name: '16K (16384 tokens)', value: CONTEXT_SIZES['16K'] },
+    { name: '32K (32768 tokens)', value: CONTEXT_SIZES['32K'] },
+    { name: '64K (65536 tokens)', value: CONTEXT_SIZES['64K'] },
+    { name: '128K (131072 tokens)', value: CONTEXT_SIZES['128K'] },
+    { name: '256K (262144 tokens)', value: CONTEXT_SIZES['256K'] }
+  ];
+  
+  // Find the index of the saved/default context size
+  const defaultContextSizeIndex = contextSizeChoices.findIndex(choice => choice.value === savedContextSize);
+  const defaultContextSize = defaultContextSizeIndex >= 0 ? defaultContextSizeIndex : 0;
+  
+  const { contextSize } = await inquirer.prompt([
+    {
+      type: 'list',
+      name: 'contextSize',
+      message: 'How big should the context window be?',
+      choices: contextSizeChoices,
+      default: defaultContextSize
+    }
+  ]);
+  
+  // Q5: Custom model directory
   const existingModelDir = existingConfig.modelDir;
-  const hasExistingModelDir = existingModelDir && existingModelDir !== 'None';
+  const hasExistingModelDir = existingModelDir !== undefined;
   
   const { useCustomModelDir } = await inquirer.prompt([
     {
@@ -83,7 +109,7 @@ async function runSetupWizard(isEdit = false) {
     finalModelDir = DEFAULTS.MODEL_DIR;
   }
   
-  // Q5: System tray vs headless
+  // Q6: System tray vs headless
   const { runMode } = await inquirer.prompt([
     {
       type: 'list',
@@ -97,7 +123,7 @@ async function runSetupWizard(isEdit = false) {
     }
   ]);
   
-  // Q6: Custom llama.cpp args
+  // Q7: Custom llama.cpp args
   const existingLlamacppArgs = existingConfig.llamacppArgs || '';
   const hasExistingArgs = existingLlamacppArgs.length > 0;
   
@@ -117,7 +143,7 @@ async function runSetupWizard(isEdit = false) {
       {
         type: 'input',
         name: 'llamacppArgs',
-        message: 'Enter llama.cpp arguments (comma-separated, e.g., --ctx-size 4096,--batch-size 512):',
+        message: 'Enter llama.cpp arguments (comma-separated, e.g., --no-mmap,--batch-size 512):',
         default: existingLlamacppArgs
       }
     ]);
@@ -126,7 +152,7 @@ async function runSetupWizard(isEdit = false) {
     finalLlamacppArgs = '';
   }
   
-  // Q7: Custom llama.cpp build
+  // Q8: Custom llama.cpp build
   const existingCustomPath = existingConfig.customLlamacppPath || '';
   const hasExistingBuild = existingCustomPath.length > 0;
   
@@ -209,6 +235,7 @@ async function runSetupWizard(isEdit = false) {
     host,
     port: parseInt(port),
     logLevel,
+    contextSize,
     backend,
     modelDir: finalModelDir,
     runMode,

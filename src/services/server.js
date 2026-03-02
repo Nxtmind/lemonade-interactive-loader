@@ -1,11 +1,14 @@
 const fs = require('fs');
 const { execSync, spawn } = require('child_process');
+const kill = require('tree-kill');
 const { LEMONADE_SERVER_DEFAULT_PATH } = require('../config/constants');
 const { findLlamaServer } = require('../utils/system');
 const { getLlamaServerPath } = require('./asset-manager');
 
 // Track the server process for graceful shutdown
 let serverProcess = null;
+let isShuttingDown = false;
+let hasExited = false;
 
 /**
  * Build server command arguments
@@ -13,13 +16,17 @@ let serverProcess = null;
  * @returns {Array} Array of command arguments
  */
 function buildServerArgs(config) {
-  const { host, port, logLevel, modelDir, llamacppArgs } = config;
+  const { host, port, logLevel, modelDir, llamacppArgs, contextSize } = config;
   const args = [
     'serve',
     '--log-level', logLevel || 'info',
     '--host', host,
     '--port', port.toString()
   ];
+  
+  if (contextSize) {
+    args.push('--ctx-size', contextSize.toString());
+  }
   
   if (modelDir && modelDir !== 'None') {
     args.push('--extra-models-dir', modelDir);
@@ -76,6 +83,7 @@ async function launchLemonadeServer(config) {
     host, 
     port, 
     logLevel, 
+    contextSize,
     modelDir, 
     llamacppArgs,
     runMode,
@@ -89,6 +97,7 @@ async function launchLemonadeServer(config) {
   console.log(`Host: ${host}`);
   console.log(`Port: ${port}`);
   console.log(`Log Level: ${logLevel}`);
+  console.log(`Context Size: ${contextSize || 'default'}`);
   console.log(`Backend: ${backend || 'auto'}`);
   console.log(`Model Directory: ${modelDir || 'default'}`);
   console.log(`Run Mode: ${runMode || 'headless'}`);
@@ -175,8 +184,11 @@ async function launchLemonadeServer(config) {
     
     // Wait for the process to exit (blocking)
     await new Promise((resolve, reject) => {
-      serverProcess.on('close', (code) => {
-        console.log(`\nServer exited with code ${code}`);
+      serverProcess.on('exit', (code, signal) => {
+        // Only log if shutdown wasn't initiated by us
+        if (!hasExited) {
+          console.log(`\nServer exited with status ${code || 'None'} and signal ${signal || 'None'}`);
+        }
         serverProcess = null;
         resolve(code);
       });
@@ -197,37 +209,95 @@ async function launchLemonadeServer(config) {
 }
 
 /**
- * Gracefully shutdown the lemonade server
+ * Gracefully shutdown the lemonade server and all child processes
  */
 function shutdownLemonadeServer() {
-  if (serverProcess) {
-    console.log('\n\nShutting down Lemonade Server...');
-    
-    // Try graceful shutdown first (SIGTERM)
-    serverProcess.on('exit', () => {
-      console.log('Server shut down successfully.');
-    });
-    
-    serverProcess.on('error', (err) => {
-      console.error(`Error shutting down server: ${err.message}`);
-    });
-    
-    // Send SIGTERM signal
-    serverProcess.kill('SIGTERM');
-    
-    // Force kill after 5 seconds if still running
-    setTimeout(() => {
-      if (serverProcess && !serverProcess.killed) {
-        console.log('Force killing server...');
-        serverProcess.kill('SIGKILL');
-      }
-    }, 5000);
+  // Prevent duplicate shutdown calls
+  if (isShuttingDown) {
+    console.log('Shutdown already in progress...');
+    return;
   }
+  
+  if (!serverProcess || !serverProcess.pid) {
+    console.log('No server process to shut down.');
+    return;
+  }
+  
+  isShuttingDown = true;
+  hasExited = false;
+  console.log('\n\nShutting down Lemonade Server and child processes...');
+  
+  // Check if process is still running
+  try {
+    // Sending signal 0 checks if process exists without actually sending a signal
+    process.kill(serverProcess.pid, 0);
+  } catch (err) {
+    // Process is already dead
+    console.log('Server process is already terminated.');
+    serverProcess = null;
+    isShuttingDown = false;
+    return;
+  }
+  
+  // Remove existing event listeners to prevent duplicates
+  serverProcess.removeAllListeners('exit');
+  serverProcess.removeAllListeners('error');
+  
+  // Try graceful shutdown first (SIGINT)
+  serverProcess.on('exit', (code, signal) => {
+    hasExited = true;
+    console.log(`Server exited with status ${code || 'None'} and signal ${signal || 'None'}`);
+    console.log('Server shut down successfully.');
+    serverProcess = null;
+    isShuttingDown = false;
+  });
+  
+  serverProcess.on('error', (err) => {
+    console.error(`Error shutting down server: ${err.message}`);
+  });
+  
+  // Use tree-kill to terminate the process and all its children
+  kill(serverProcess.pid, 'SIGINT', (err) => {
+    if (err && !hasExited) {
+      // Only log error if process hasn't already exited naturally
+      if (err.code !== 'ESRCH') {
+        console.log(`Note: Could not kill process tree: ${err.message}`);
+      }
+    }
+  });
+  
+  // Force kill with SIGKILL after 3 seconds if still running
+  setTimeout(() => {
+    // Don't force kill if already exited
+    if (hasExited || !isShuttingDown) return;
+    
+    // Check again if process is still running before force kill
+    try {
+      process.kill(serverProcess.pid, 0);
+      // Process still exists, force kill it
+      kill(serverProcess.pid, 'SIGKILL', (err) => {
+        if (err && !hasExited) {
+          // Only log error if process hasn't already exited naturally
+          if (err.code !== 'ESRCH') {
+            console.log(`Note: Could not force kill process: ${err.message}`);
+          }
+        }
+      });
+    } catch (err) {
+      // Process has already exited
+      console.log('Process has already exited.');
+    }
+  }, 3000);
 }
 
 // Set up signal handlers for graceful shutdown
 function setupShutdownHandlers() {
   const shutdown = (signal) => {
+    if (isShuttingDown) {
+      console.log(`Received ${signal}, but shutdown already in progress...`);
+      return;
+    }
+    
     console.log(`\n\nReceived ${signal}. Shutting down...`);
     shutdownLemonadeServer();
     setTimeout(() => process.exit(0), 2000);

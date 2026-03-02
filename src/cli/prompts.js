@@ -223,6 +223,7 @@ function displayConfigSummary(config) {
   console.log(`Host: ${config.host}`);
   console.log(`Port: ${config.port}`);
   console.log(`Log Level: ${config.logLevel}`);
+  console.log(`Context Size: ${config.contextSize}`);
   console.log(`Backend: ${config.backend}`);
   console.log(`Model Directory: ${config.modelDir}`);
   console.log(`Run Mode: ${config.runMode}`);

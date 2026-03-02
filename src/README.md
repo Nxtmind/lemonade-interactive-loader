@@ -43,7 +43,7 @@ src/
 ### CLI (`cli/`)
 - **menu.js**: Main menu system and command routing
 - **prompts.js**: Interactive prompts for release/asset selection
-- **setup-wizard.js**: 8-question setup wizard
+- **setup-wizard.js**: 9-question setup wizard
 
 ## Architecture Principles
 

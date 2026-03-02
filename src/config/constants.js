@@ -57,6 +57,17 @@ const HOSTS = {
   ALL_INTERFACES: '0.0.0.0'
 };
 
+// Context window sizes (in tokens)
+const CONTEXT_SIZES = {
+  '4K': 4096,
+  '8K': 8192,
+  '16K': 16384,
+  '32K': 32768,
+  '64K': 65536,
+  '128K': 131072,
+  '256K': 262144
+};
+
 // Default values
 const DEFAULTS = {
   PORT: 8080,
@@ -65,7 +76,8 @@ const DEFAULTS = {
   EXPOSE_TO_NETWORK: false,
   RUN_MODE: RUN_MODES.SYSTEM_TRAY,
   MODEL_DIR: 'None',
-  BACKEND: BACKEND_TYPES.AUTO
+  BACKEND: BACKEND_TYPES.AUTO,
+  CONTEXT_SIZE: CONTEXT_SIZES['4K']
 };
 
 module.exports = {
@@ -79,5 +91,6 @@ module.exports = {
   LOG_LEVELS,
   RUN_MODES,
   HOSTS,
+  CONTEXT_SIZES,
   DEFAULTS
 };
