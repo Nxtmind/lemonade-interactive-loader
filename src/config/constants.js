@@ -2,14 +2,14 @@ const path = require('path');
 const os = require('os');
 
 // Configuration directories
-const USER_CONFIG_DIR = path.join(os.homedir(), '.lemonade-launcher');
+const USER_CONFIG_DIR = path.join(os.homedir(), '.lemonade-interactive-launcher');
 const USER_CONFIG_FILE = path.join(USER_CONFIG_DIR, 'config.json');
-const DEFAULT_LLAMACPP_INSTALL_DIR = path.join(os.homedir(), '.lemonade-launcher', 'llama-cpp');
+const DEFAULT_LLAMACPP_INSTALL_DIR = path.join(os.homedir(), '.lemonade-interactive-launcher', 'llama-cpp');
 
 // GitHub API
 const GITHUB_RELEASES_URL = 'https://api.github.com/repos/ggml-org/llama.cpp/releases';
 const GITHUB_API_HEADERS = {
-  'User-Agent': 'lemonade-launcher',
+  'User-Agent': 'lemonade-interactive-launcher',
   'Accept': 'application/vnd.github.v3+json'
 };
 

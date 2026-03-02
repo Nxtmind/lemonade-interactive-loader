@@ -3,7 +3,7 @@ const { loadConfig } = require('../config');
 const { getAllInstalledAssets, getLlamaServerPath, downloadAndExtractLlamaCpp, deleteInstalledAsset } = require('../services/asset-manager');
 const { selectLlamaCppRelease, selectAsset, askLaunchServer } = require('./prompts');
 const { runSetupWizard } = require('./setup-wizard');
-const { launchLemonadeServer } = require('../services/server');
+const { launchLemonadeServer, setupShutdownHandlers } = require('../services/server');
 const { inferBackendType, formatBytes } = require('../utils/system');
 
 /**
@@ -263,15 +263,20 @@ async function resetConfiguration() {
 /**
  * Handle main menu command
  * @param {string} command - Selected command
+ * @returns {Promise<boolean>} True if should exit the app
  */
 async function handleCommand(command) {
+  let shouldExit = false;
+  
   switch (command) {
     case 'setup':
       await runSetupWizard(false);
       if (await askLaunchServer()) {
         const config = loadConfig();
         if (Object.keys(config).length > 0) {
+          setupShutdownHandlers();
           await launchLemonadeServer(config);
+          shouldExit = true;
         }
       }
       break;
@@ -281,7 +286,9 @@ async function handleCommand(command) {
       if (await askLaunchServer()) {
         const config = loadConfig();
         if (Object.keys(config).length > 0) {
+          setupShutdownHandlers();
           await launchLemonadeServer(config);
+          shouldExit = true;
         }
       }
       break;
@@ -294,7 +301,7 @@ async function handleCommand(command) {
       await resetConfiguration();
       break;
       
-
+    
       
     case 'manage':
       let manageAction;
@@ -319,11 +326,17 @@ async function handleCommand(command) {
       const config = loadConfig();
       if (Object.keys(config).length === 0) {
         console.log('No configuration found. Please run "setup" first.');
-        return;
+        return false;
       }
+      // Set up shutdown handlers to kill server on exit
+      setupShutdownHandlers();
       await launchLemonadeServer(config);
+      // After server exits, exit the app completely
+      shouldExit = true;
       break;
   }
+  
+  return shouldExit;
 }
 
 /**
@@ -334,7 +347,12 @@ async function runCLI() {
   
   while (continueRunning) {
     const command = await showMainMenu();
-    await handleCommand(command);
+    const shouldExit = await handleCommand(command);
+    
+    // Exit the app if we just exited from the server
+    if (shouldExit) {
+      return;
+    }
     
     const { continueRunning: shouldContinue } = await inquirer.prompt([
       {
@@ -349,6 +367,10 @@ async function runCLI() {
   }
   
   console.log('\n👋 Goodbye!\n');
+  
+  // Ensure server is shut down when exiting the CLI
+  const { shutdownLemonadeServer } = require('../services/server');
+  shutdownLemonadeServer();
 }
 
 module.exports = {

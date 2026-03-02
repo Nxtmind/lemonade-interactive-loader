@@ -1,8 +1,11 @@
 const fs = require('fs');
-const { execSync } = require('child_process');
+const { execSync, spawn } = require('child_process');
 const { LEMONADE_SERVER_DEFAULT_PATH } = require('../config/constants');
 const { findLlamaServer } = require('../utils/system');
 const { getLlamaServerPath } = require('./asset-manager');
+
+// Track the server process for graceful shutdown
+let serverProcess = null;
 
 /**
  * Build server command arguments
@@ -154,21 +157,90 @@ async function launchLemonadeServer(config) {
   console.log('\nStarting server...\n');
   
   try {
-    const command = formatCommand(serverPath, args, {});
-    execSync(command, {
+    // Build the command for spawning
+    const commandStr = formatCommand(serverPath, args, {});
+    
+    // Parse the command into executable and arguments
+    const parts = commandStr.trim().split(/\s+/);
+    const executable = parts[0];
+    const execArgs = parts.slice(1);
+    
+    console.log(`Spawning: ${executable} ${execArgs.join(' ')}`);
+    
+    // Spawn the server process
+    serverProcess = spawn(executable, execArgs, {
       stdio: 'inherit',
       env: process.env
     });
+    
+    // Wait for the process to exit (blocking)
+    await new Promise((resolve, reject) => {
+      serverProcess.on('close', (code) => {
+        console.log(`\nServer exited with code ${code}`);
+        serverProcess = null;
+        resolve(code);
+      });
+      
+      serverProcess.on('error', (err) => {
+        console.error(`Server process error: ${err.message}`);
+        serverProcess = null;
+        reject(err);
+      });
+    });
+    
   } catch (error) {
-    console.error(`Server exited with error code: ${error.status}`);
+    console.error(`Server exited with error: ${error.message}`);
     if (error.status !== null) {
       process.exit(error.status);
     }
   }
 }
 
+/**
+ * Gracefully shutdown the lemonade server
+ */
+function shutdownLemonadeServer() {
+  if (serverProcess) {
+    console.log('\n\nShutting down Lemonade Server...');
+    
+    // Try graceful shutdown first (SIGTERM)
+    serverProcess.on('exit', () => {
+      console.log('Server shut down successfully.');
+    });
+    
+    serverProcess.on('error', (err) => {
+      console.error(`Error shutting down server: ${err.message}`);
+    });
+    
+    // Send SIGTERM signal
+    serverProcess.kill('SIGTERM');
+    
+    // Force kill after 5 seconds if still running
+    setTimeout(() => {
+      if (serverProcess && !serverProcess.killed) {
+        console.log('Force killing server...');
+        serverProcess.kill('SIGKILL');
+      }
+    }, 5000);
+  }
+}
+
+// Set up signal handlers for graceful shutdown
+function setupShutdownHandlers() {
+  const shutdown = (signal) => {
+    console.log(`\n\nReceived ${signal}. Shutting down...`);
+    shutdownLemonadeServer();
+    setTimeout(() => process.exit(0), 2000);
+  };
+  
+  process.on('SIGINT', () => shutdown('SIGINT')); // Ctrl+C
+  process.on('SIGTERM', () => shutdown('SIGTERM')); // Termination signal
+}
+
 module.exports = {
   buildServerArgs,
   formatCommand,
-  launchLemonadeServer
+  launchLemonadeServer,
+  shutdownLemonadeServer,
+  setupShutdownHandlers
 };

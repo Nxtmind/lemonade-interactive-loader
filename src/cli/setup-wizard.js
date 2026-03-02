@@ -63,7 +63,7 @@ async function runSetupWizard(isEdit = false) {
       type: 'confirm',
       name: 'useCustomModelDir',
       message: 'Is there another model directory to use? (example: LM Studio)',
-      default: false
+      default: hasExistingModelDir
     }
   ]);
   

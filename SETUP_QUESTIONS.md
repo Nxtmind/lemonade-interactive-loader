@@ -58,7 +58,7 @@ This document outlines the questions we will ask users to configure their Lemona
 ## Configuration Storage
 
 Configuration will be stored at **user-level only**:
-- **Location**: `~/.lemonade-launcher/config.json`
+- **Location**: `~/.lemonade-interactive-launcher/config.json`
 - **Purpose**: Persist user preferences across all projects and sessions
 
 ## Commands
@@ -95,5 +95,5 @@ The CLI now supports the following commands via the main menu:
 ## Configuration Storage
 
 Configuration is stored at **user-level only**:
-- **Location**: `~/.lemonade-launcher/config.json`
+- **Location**: `~/.lemonade-interactive-launcher/config.json`
 - **Purpose**: Persist user preferences across all projects and sessions

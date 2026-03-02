@@ -83,13 +83,13 @@ Centralized configuration for all application constants:
 
 ```javascript
 // Configuration directories
-USER_CONFIG_DIR: ~/.lemonade-launcher
-USER_CONFIG_FILE: ~/.lemonade-launcher/config.json
-DEFAULT_LLAMACPP_INSTALL_DIR: ~/.lemonade-launcher/llama-cpp
+USER_CONFIG_DIR: ~/.lemonade-interactive-launcher
+USER_CONFIG_FILE: ~/.lemonade-interactive-launcher/config.json
+DEFAULT_LLAMACPP_INSTALL_DIR: ~/.lemonade-interactive-launcher/llama-cpp
 
 // GitHub API
 GITHUB_RELEASES_URL: https://api.github.com/repos/ggml-org/llama.cpp/releases
-GITHUB_API_HEADERS: { 'User-Agent': 'lemonade-launcher', ... }
+GITHUB_API_HEADERS: { 'User-Agent': 'lemonade-interactive-launcher', ... }
 
 // Backend types
 BACKEND_TYPES: { AUTO, CPU, CUDA, ROCM, VULKAN, SYCL, OPENCL }
@@ -354,10 +354,10 @@ describe('Config Module', () => {
 
 ```javascript
 // ✅ Good - Uses path module
-const configPath = path.join(os.homedir(), '.lemonade-launcher', 'config.json');
+const configPath = path.join(os.homedir(), '.lemonade-interactive-launcher', 'config.json');
 
 // ❌ Bad - Hardcoded path separators
-const configPath = '~/.lemonade-launcher/config.json';
+const configPath = '~/.lemonade-interactive-launcher/config.json';
 ```
 
 ### Command Execution

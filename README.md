@@ -169,7 +169,7 @@ Point Lemonade Server to your existing model directory (like LM Studio's):
 
 Configuration is automatically saved and loaded:
 
-- **Location**: `~/.lemonade-launcher/config.json` (Linux/macOS) or `%USERPROFILE%\.lemonade-launcher\config.json` (Windows)
+- **Location**: `~/.lemonade-interactive-launcher/config.json` (Linux/macOS) or `%USERPROFILE%\.lemonade-interactive-launcher\config.json` (Windows)
 - **Format**: JSON
 - **Auto-saved**: After every setup or edit
 
@@ -250,7 +250,7 @@ Run Command Prompt or PowerShell as Administrator.
 
 #### Build download fails
 - Check your internet connection
-- Ensure you have write permissions to `~/.lemonade-launcher/`
+- Ensure you have write permissions to `~/.lemonade-interactive-launcher/`
 - Try downloading the asset manually from GitHub
 
 #### Server won't start

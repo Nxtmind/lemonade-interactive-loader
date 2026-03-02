@@ -20,7 +20,7 @@ function downloadFile(url, outputPath) {
     
     const file = fs.createWriteStream(outputPath);
     
-    const req = protocol.get(url, { headers: { 'User-Agent': 'lemonade-launcher' } }, (res) => {
+    const req = protocol.get(url, { headers: { 'User-Agent': 'lemonade-interactive-launcher' } }, (res) => {
       if (res.statusCode === 302 || res.statusCode === 301) {
         downloadFile(res.headers.location, outputPath)
           .then(resolve)
