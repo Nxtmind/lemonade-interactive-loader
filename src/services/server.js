@@ -32,10 +32,6 @@ function buildServerArgs(config) {
     args.push('--extra-models-dir', modelDir);
   }
   
-  if (llamacppArgs) {
-    args.push('--llamacpp-args', `"${llamacppArgs}"`);
-  }
-  
   return args;
 }
 
@@ -128,6 +124,11 @@ async function launchLemonadeServer(config) {
     // Point to the actual binary, not the directory
     const binaryPath = findLlamaServer(customLlamacppPath || serverBinary);
     envVars[backendEnvVar] = binaryPath;
+  }
+  
+  // Set llamacppArgs as an environment variable
+  if (llamacppArgs) {
+    envVars['LEMONADE_LLAMACPP_ARGS'] = llamacppArgs;
   }
   
   if (!fs.existsSync(serverPath)) {
