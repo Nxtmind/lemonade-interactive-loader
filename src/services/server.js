@@ -1,7 +1,7 @@
 const fs = require('fs');
 const { execSync, spawn } = require('child_process');
 const kill = require('tree-kill');
-const { LEMONADE_SERVER_DEFAULT_PATH } = require('../config/constants');
+const { LEMONADE_SERVER_DEFAULT_PATH, LEMONADE_CONFIG_FILE } = require('../config/constants');
 const { findLlamaServer } = require('../utils/system');
 const { getLlamaServerPath } = require('./asset-manager');
 
@@ -16,22 +16,23 @@ let hasExited = false;
  * @returns {Array} Array of command arguments
  */
 function buildServerArgs(config) {
-  const { host, port, logLevel, modelDir, llamacppArgs, contextSize } = config;
   const args = [
     'serve',
-    '--log-level', logLevel || 'info',
-    '--host', host,
-    '--port', port.toString()
+    '--log-level', config.logLevel || 'info',
+    '--host', config.host,
+    '--port', config.port.toString()
   ];
-  
-  if (contextSize) {
-    args.push('--ctx-size', contextSize.toString());
+
+  // Add context size if specified
+  if (config.contextSize) {
+    args.push('--ctx-size', config.contextSize.toString());
   }
-  
-  if (modelDir && modelDir !== 'None') {
-    args.push('--extra-models-dir', modelDir);
+
+  // Add model directory if specified
+  if (config.modelDir && config.modelDir !== 'None') {
+    args.push('--extra-models-dir', config.modelDir);
   }
-  
+
   return args;
 }
 
@@ -75,12 +76,12 @@ function formatCommand(serverPath, args, envVars = {}) {
  * @param {Object} config - Server configuration
  */
 async function launchLemonadeServer(config) {
-  const { 
-    host, 
-    port, 
-    logLevel, 
+  const {
+    host,
+    port,
+    logLevel,
     contextSize,
-    modelDir, 
+    modelDir,
     llamacppArgs,
     runMode,
     customLlamacppPath,
@@ -88,7 +89,7 @@ async function launchLemonadeServer(config) {
     customServerPath,
     backend
   } = config;
-  
+
   console.log('\n=== Launching Lemonade Server ===\n');
   console.log(`Host: ${host}`);
   console.log(`Port: ${port}`);
@@ -104,7 +105,7 @@ async function launchLemonadeServer(config) {
     console.log(`Custom llama.cpp: ${customLlamacppPath}`);
   }
   console.log('');
-  
+
   const serverPath = LEMONADE_SERVER_DEFAULT_PATH;
   const args = buildServerArgs(config);
   
@@ -112,12 +113,12 @@ async function launchLemonadeServer(config) {
   if (!backendTypeToUse && backend && backend !== 'auto') {
     backendTypeToUse = backend;
   }
-  
+
   let serverBinary = customServerPath;
   if (!serverBinary && customLlamacppPath) {
     serverBinary = findLlamaServer(customLlamacppPath);
   }
-  
+
   const envVars = {};
   if (backendTypeToUse && backendTypeToUse !== 'auto' && serverBinary) {
     const backendEnvVar = `LEMONADE_LLAMACPP_${backendTypeToUse.toUpperCase()}_BIN`;
@@ -125,12 +126,12 @@ async function launchLemonadeServer(config) {
     const binaryPath = findLlamaServer(customLlamacppPath || serverBinary);
     envVars[backendEnvVar] = binaryPath;
   }
-  
+
   // Set llamacppArgs as an environment variable
   if (llamacppArgs) {
     envVars['LEMONADE_LLAMACPP_ARGS'] = llamacppArgs;
   }
-  
+
   if (!fs.existsSync(serverPath)) {
     console.error(`\n❌ Error: lemonade-server not found at ${serverPath}`);
     console.log('\n📋 Expected Location:');

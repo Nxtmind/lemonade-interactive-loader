@@ -16,11 +16,11 @@ async function showMainMenu() {
   console.log('║            🍋 Lemonade Interactive Launcher            ║');
   console.log('╚════════════════════════════════════════════════════════╝');
   console.log('');
-  
+
   // Check if configuration exists
   const config = loadConfig();
   const hasConfig = Object.keys(config).length > 0;
-  
+
   // Show message if no configuration exists
   if (!hasConfig) {
     console.log('⚠️  No configuration found. Please run Setup first.\n');
@@ -203,12 +203,12 @@ async function downloadNewBuild() {
  */
 async function viewConfiguration() {
   const config = loadConfig();
-  
+
   if (Object.keys(config).length === 0) {
     console.log('No configuration found. Run "setup" to configure.');
     return;
   }
-  
+
   console.log('\n=== Current Configuration ===\n');
   console.log(`Host: ${config.host}`);
   console.log(`Port: ${config.port}`);
@@ -218,7 +218,7 @@ async function viewConfiguration() {
   console.log(`Model Directory: ${config.modelDir}`);
   console.log(`Run Mode: ${config.runMode}`);
   console.log(`llama.cpp Args: ${config.llamacppArgs || 'None'}`);
-  
+
   if (config.customLlamacppPath) {
     console.log(`Custom llama.cpp Build: ${config.customLlamacppPath}`);
     console.log(`  Backend Type: ${config.customBackendType?.toUpperCase() || 'Unknown'}`);
@@ -226,7 +226,7 @@ async function viewConfiguration() {
   } else {
     console.log(`Custom llama.cpp Build: Using bundled build`);
   }
-  
+
   const installedAssets = getAllInstalledAssets();
   if (installedAssets.length > 0) {
     console.log('\n=== All Installed Custom Builds ===\n');
@@ -254,7 +254,7 @@ async function resetConfiguration() {
       default: false
     }
   ]);
-  
+
   if (confirmReset) {
     const { resetConfig } = require('../config');
     resetConfig();
@@ -268,7 +268,7 @@ async function resetConfiguration() {
  */
 async function handleCommand(command) {
   let shouldExit = false;
-  
+
   switch (command) {
     case 'setup':
       await runSetupWizard(false);
@@ -281,7 +281,7 @@ async function handleCommand(command) {
         }
       }
       break;
-      
+
     case 'edit':
       await runSetupWizard(true);
       if (await askLaunchServer()) {
@@ -293,22 +293,21 @@ async function handleCommand(command) {
         }
       }
       break;
-      
+
     case 'view':
       await viewConfiguration();
       break;
-      
+
     case 'reset':
       await resetConfiguration();
       break;
-      
-    
-      
+
+
     case 'manage':
       let manageAction;
       do {
         manageAction = await showManageMenu();
-        
+
         switch (manageAction) {
           case 'view':
             await viewInstalledBuilds();
@@ -322,7 +321,7 @@ async function handleCommand(command) {
         }
       } while (manageAction !== 'back');
       break;
-      
+
     case 'serve':
       const config = loadConfig();
       if (Object.keys(config).length === 0) {
@@ -336,7 +335,7 @@ async function handleCommand(command) {
       shouldExit = true;
       break;
   }
-  
+
   return shouldExit;
 }
 
