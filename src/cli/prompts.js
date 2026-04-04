@@ -1,6 +1,5 @@
 const inquirer = require('inquirer');
 const { DEFAULTS, BACKEND_TYPES, LOG_LEVELS, RUN_MODES, HOSTS } = require('../config/constants');
-const { loadConfig } = require('../config');
 const { detectSystem, formatBytes, filterServerAssets, inferBackendType } = require('../utils/system');
 const { fetchAllReleases } = require('../services/github');
 const { getAllInstalledAssets, getLlamaServerPath, downloadAndExtractLlamaCpp, selectInstalledAsset, isAssetInstalled } = require('../services/asset-manager');
@@ -228,7 +227,7 @@ function displayConfigSummary(config) {
   console.log(`Model Directory: ${config.modelDir}`);
   console.log(`Run Mode: ${config.runMode}`);
   console.log(`llama.cpp Args: ${config.llamacppArgs || 'None'}`);
-  
+
   if (config.customLlamacppPath) {
     console.log(`Custom llama.cpp Build: ${config.customLlamacppPath}`);
     console.log(`  Backend Type: ${config.customBackendType?.toUpperCase() || 'Unknown'}`);

@@ -27,7 +27,9 @@ module.exports = {
   loadConfig: require('./config').loadConfig,
   saveConfig: require('./config').saveConfig,
   resetConfig: require('./config').resetConfig,
-  
+  getLemonadeCacheDir: require('./config').getLemonadeCacheDir,
+  getLemonadeConfigFile: require('./config').getLemonadeConfigFile,
+
   // Services
   fetchAllReleases: require('./services/github').fetchAllReleases,
   fetchLatestRelease: require('./services/github').fetchLatestRelease,
@@ -37,7 +39,7 @@ module.exports = {
   downloadAndExtractLlamaCpp: require('./services/asset-manager').downloadAndExtractLlamaCpp,
   deleteInstalledAsset: require('./services/asset-manager').deleteInstalledAsset,
   launchLemonadeServer: require('./services/server').launchLemonadeServer,
-  
+
   // Utils
   detectSystem: require('./utils/system').detectSystem,
   formatBytes: require('./utils/system').formatBytes,
@@ -46,10 +48,11 @@ module.exports = {
   getAssetType: require('./utils/system').getAssetType,
   filterServerAssets: require('./utils/system').filterServerAssets,
   findLlamaServer: require('./utils/system').findLlamaServer,
-  
+
   // CLI
   runSetupWizard: require('./cli/setup-wizard').runSetupWizard,
-  runCLI: require('./cli/menu').runCLI
+  runCLI: require('./cli/menu').runCLI,
+  runConfigCLI: require('./cli/config').main
 };
 
 // Run if executed directly

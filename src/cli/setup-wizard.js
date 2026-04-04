@@ -12,9 +12,9 @@ const { inferBackendType } = require('../utils/system');
  */
 async function runSetupWizard(isEdit = false) {
   console.log(isEdit ? '🍋 Edit Configuration From Saved' : '🍋 Setup Configuration From Defaults');
-  
-  const existingConfig = isEdit ? loadConfig() : {};
-  
+
+  let existingConfig = isEdit ? loadConfig() : {};
+
   // Q1: Local network exposure
   const { exposeToNetwork } = await inquirer.prompt([
     {
@@ -228,8 +228,8 @@ async function runSetupWizard(isEdit = false) {
     customBackendType = '';
     customServerPath = '';
   }
-  
-  // Save configuration
+
+  // Save configuration to Lemonade Server config format
   const config = {
     exposeToNetwork,
     host,
@@ -246,7 +246,7 @@ async function runSetupWizard(isEdit = false) {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
-  
+
   const { saveConfiguration } = await inquirer.prompt([
     {
       type: 'confirm',
@@ -255,13 +255,13 @@ async function runSetupWizard(isEdit = false) {
       default: true
     }
   ]);
-  
+
   if (saveConfiguration) {
     saveConfig(config);
   }
-  
+
   displayConfigSummary(config);
-  
+
   return config;
 }
 
